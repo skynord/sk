@@ -13,9 +13,18 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.analysis import memo
 from app.db.models import Match, MatchStat, Team
 
 FINISHED = "finished"
+
+
+def team_names_map(db: Session) -> dict[int, str]:
+    """Every team's id -> name, memoised (the map never changes between ingests)."""
+    return memo.memo(
+        ("team_names",),
+        lambda: {t.id: t.name for t in db.execute(select(Team)).scalars()},
+    )
 
 
 @dataclass
@@ -72,6 +81,15 @@ class FormStats:
 def _rows_for_team(
     db: Session, team_id: int, before: datetime, limit: int | None = None
 ) -> list[MatchSummary]:
+    return memo.memo(
+        ("form", team_id, before, limit),
+        lambda: _rows_for_team_uncached(db, team_id, before, limit),
+    )
+
+
+def _rows_for_team_uncached(
+    db: Session, team_id: int, before: datetime, limit: int | None = None
+) -> list[MatchSummary]:
     stmt = (
         select(Match)
         .where(
@@ -85,9 +103,7 @@ def _rows_for_team(
         stmt = stmt.limit(limit)
     matches = list(db.execute(stmt).scalars())
     summaries: list[MatchSummary] = []
-    team_names = {
-        t.id: t.name for t in db.execute(select(Team)).scalars()
-    }
+    team_names = team_names_map(db)
     stat_map: dict[int, dict[str, MatchStat]] = {}
     if matches:
         stat_rows = db.execute(
@@ -213,7 +229,7 @@ def head_to_head(
         .limit(limit)
     )
     matches = list(db.execute(stmt).scalars())
-    team_names = {t.id: t.name for t in db.execute(select(Team)).scalars()}
+    team_names = team_names_map(db)
     rows: list[MatchSummary] = []
     for m in matches:
         is_home = m.home_team_id == home_team_id

@@ -41,6 +41,18 @@ def seeded() -> Path:
     return _TMP
 
 
+@pytest.fixture(autouse=True)
+def _clean_caches():
+    """Keep the analysis memo and the bot's job state from leaking between tests."""
+    from app.analysis import bot_jobs, memo
+
+    memo.clear()
+    bot_jobs.reset()
+    yield
+    memo.clear()
+    bot_jobs.reset()
+
+
 @pytest.fixture()
 def db(seeded):
     session = SessionLocal()

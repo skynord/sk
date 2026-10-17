@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.analysis import bot
+from app.analysis import bot, bot_jobs
 from app.api.deps import get_db
 from app.config import get_settings
 from app.db.models import Match
@@ -28,17 +28,34 @@ def predictions_upcoming(
     days: int = Query(default=14, ge=1, le=120),
     limit: int = Query(default=50, ge=1, le=200),
     include_live: bool = True,
-    db: Session = Depends(get_db),
+    refresh: bool = False,
 ) -> dict:
-    """Model predictions for every upcoming fixture in the window."""
-    return bot.predict_upcoming(
-        db,
-        league_id=league_id,
-        days_ahead=days,
-        limit=limit,
-        include_live=include_live,
-        persist=False,
-    )
+    """Model predictions for every upcoming fixture in the window.
+
+    Fitting the model over the whole window can outlast an HTTP request, so the
+    batch runs in the background: the first call starts it and reports
+    ``status: "running"``; later calls report the same status until it becomes
+    ``"ready"`` (with the results) or ``"error"``.  Pass ``refresh=true`` to
+    recompute, otherwise a finished run for the same settings is reused.
+    """
+    kwargs = {
+        "league_id": league_id,
+        "days_ahead": days,
+        "limit": limit,
+        "include_live": include_live,
+        "persist": False,
+    }
+    key = f"{league_id}|{days}|{limit}|{int(include_live)}"
+    snap = bot_jobs.ensure(key, kwargs, force=refresh)
+    payload: dict = {
+        "status": snap["status"],
+        "started_at": snap["started_at"],
+        "finished_at": snap["finished_at"],
+        "error": snap["error"],
+    }
+    if snap["status"] == "ready" and snap["result"] is not None:
+        payload.update(snap["result"])
+    return payload
 
 
 def _live_provider():

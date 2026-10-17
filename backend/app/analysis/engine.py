@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.analysis import features, identity
+from app.analysis import features, identity, memo
 from app.analysis.report import (
     derive_confidence,
     derive_findings,
@@ -59,6 +59,10 @@ class AnalysisOptions:
     #: fall back to sibling competitions in the same country (matching clubs by
     #: name).  Set False to analyse strictly within the competition.
     allow_peer_competitions: bool = True
+    #: Override the training cutoff for every fixture in a batch.  The prediction
+    #: bot passes one cutoff for the whole batch so fixtures in the same
+    #: competition share a single fitted model instead of refitting per kickoff.
+    as_of: datetime | None = None
     persist: bool = True
 
 
@@ -80,8 +84,17 @@ def records_for_leagues(
     """Completed matches across a set of competitions, oldest first."""
     if not league_ids:
         return []
+    return memo.memo(
+        ("records", tuple(league_ids), before, lookback_days),
+        lambda: _load_records_for_leagues(db, league_ids, before, lookback_days),
+    )
+
+
+def _load_records_for_leagues(
+    db: Session, league_ids: list[int], before: datetime, lookback_days: int
+) -> list[MatchRecord]:
     since = before - timedelta(days=lookback_days)
-    team_names = {t.id: t.name for t in db.execute(select(Team)).scalars()}
+    team_names = features.team_names_map(db)
     stmt = (
         select(Match)
         .where(
@@ -202,6 +215,15 @@ def _halftime_goal_share(
     """
     if not league_ids:
         return None
+    return memo.memo(
+        ("ht_share", tuple(league_ids), before, lookback_days),
+        lambda: _load_halftime_goal_share(db, league_ids, before, lookback_days),
+    )
+
+
+def _load_halftime_goal_share(
+    db: Session, league_ids: list[int], before: datetime, lookback_days: int
+) -> dict[str, Any] | None:
     since = before - timedelta(days=lookback_days)
     rows = db.execute(
         select(
@@ -473,7 +495,7 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
     if home is None or away is None:
         raise LookupError("match is missing one of its teams")
 
-    before = _aware(match.kickoff_utc)
+    before = _aware(opts.as_of) if opts.as_of is not None else _aware(match.kickoff_utc)
     records = training_records(db, match.league_id, before, opts.lookback_days)
     training_league_ids = [match.league_id]
     scope: dict[str, Any] = {

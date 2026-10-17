@@ -134,6 +134,7 @@ export const api = {
     days?: number;
     limit?: number;
     include_live?: boolean;
+    refresh?: boolean;
   }) => request<UpcomingPredictions>(`/predictions/upcoming${query(params)}`),
 
   live: (date?: string) => request<LiveResponse>(`/live${query({ date })}`),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 
 from app.analysis import bot
@@ -99,10 +100,22 @@ def test_summarise_report_includes_value_when_odds_present(db):
     assert "expected_value" in summary["best_value"]
 
 
-def test_predictions_endpoint(client):
+def _await_predictions(client, params, timeout=60.0):
+    """Start the bot through the endpoint and poll until the run finishes."""
+    deadline = time.monotonic() + timeout
     body = client.get(
-        "/api/predictions/upcoming", params={"days": 30, "include_live": "false"}
+        "/api/predictions/upcoming", params={**params, "refresh": "true"}
     ).json()
+    while body.get("status") == "running" and time.monotonic() < deadline:
+        time.sleep(0.05)
+        body = client.get("/api/predictions/upcoming", params=params).json()
+    if body.get("status") == "error":
+        raise AssertionError(f"prediction bot failed: {body.get('error')}")
+    return body
+
+
+def test_predictions_endpoint(client):
+    body = _await_predictions(client, {"days": 30, "include_live": "false"})
     assert body["window_days"] == 30
     assert body["include_live"] is False
     assert "predictions" in body and "skipped" in body

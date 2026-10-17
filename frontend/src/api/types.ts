@@ -370,14 +370,18 @@ export interface UpcomingPrediction {
 }
 
 export interface UpcomingPredictions {
-  generated_at: string;
-  window_days: number;
-  include_live: boolean;
-  league_id: number | null;
-  considered: number;
-  predicted: number;
-  skipped: Array<{ match_id: number; home_team: string; away_team: string; reason: string }>;
-  predictions: UpcomingPrediction[];
+  status: "idle" | "running" | "ready" | "error";
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string | null;
+  generated_at?: string;
+  window_days?: number;
+  include_live?: boolean;
+  league_id?: number | null;
+  considered?: number;
+  predicted?: number;
+  skipped?: Array<{ match_id: number; home_team: string; away_team: string; reason: string }>;
+  predictions?: UpcomingPrediction[];
 }
 
 export interface LiveMatch {

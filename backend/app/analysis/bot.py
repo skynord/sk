@@ -8,12 +8,14 @@ never talks to a bookmaker account, and reports missing inputs honestly.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.analysis import features
 from app.analysis.engine import AnalysisOptions, build_analysis
 from app.db.models import Match, Team
 
@@ -50,7 +52,7 @@ def upcoming_matches(
 
 
 def _team_names(db: Session) -> dict[int, str]:
-    return {t.id: t.name for t in db.execute(select(Team)).scalars()}
+    return features.team_names_map(db)
 
 
 def _top(probabilities: dict[str, float]) -> tuple[str, float]:
@@ -124,6 +126,11 @@ def predict_upcoming(
         db, league_id=league_id, days_ahead=days_ahead, limit=limit, include_live=include_live
     )
     base_options = options or AnalysisOptions(persist=persist)
+    # One cutoff for the whole batch: every fixture in a competition then shares
+    # the same training set (and the same fitted model), so the batch costs one
+    # fit per competition rather than one per fixture.
+    if base_options.as_of is None:
+        base_options = replace(base_options, as_of=datetime.now(tz=UTC))
     predictions: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     for match in matches:

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { League, UpcomingPrediction, UpcomingPredictions } from "../api/types";
@@ -20,32 +20,56 @@ function pickLabel(prediction: UpcomingPrediction): string {
   return SELECT_LABEL[selection] ?? selection;
 }
 
+const POLL_MS = 2500;
+
 export default function Predictions() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [data, setData] = useState<UpcomingPredictions | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [leagueId, setLeagueId] = useState<number | undefined>(undefined);
   const [days, setDays] = useState(14);
   const [includeLive, setIncludeLive] = useState(true);
+  const pollTimer = useRef<number | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    api
-      .upcomingPredictions({ league_id: leagueId, days, include_live: includeLive })
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [leagueId, days, includeLive]);
+  const clearTimer = useCallback(() => {
+    if (pollTimer.current !== null) {
+      window.clearTimeout(pollTimer.current);
+      pollTimer.current = null;
+    }
+  }, []);
+
+  const run = useCallback(
+    (force = false) => {
+      clearTimer();
+      setError(null);
+      api
+        .upcomingPredictions({
+          league_id: leagueId,
+          days,
+          include_live: includeLive,
+          refresh: force,
+        })
+        .then((res) => {
+          setData(res);
+          if (res.status === "running") {
+            pollTimer.current = window.setTimeout(() => run(false), POLL_MS);
+          }
+        })
+        .catch((e: Error) => setError(e.message));
+    },
+    [leagueId, days, includeLive, clearTimer],
+  );
 
   useEffect(() => {
     api.leagues().then(setLeagues).catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    run(false);
+    return clearTimer;
+  }, [run, clearTimer]);
+
+  const running = data?.status === "running";
 
   return (
     <div>
@@ -93,31 +117,36 @@ export default function Predictions() {
           </label>
           <label>
             <div className="muted small">&nbsp;</div>
-            <button onClick={load} disabled={loading}>
-              {loading ? "Running…" : "Run bot"}
+            <button onClick={() => run(true)} disabled={running}>
+              {running ? "Running…" : "Run bot"}
             </button>
           </label>
         </div>
       </Card>
 
       {error && <ErrorBox message={error} />}
-      {!data && !error && (
+      {!error && data?.status === "error" && <ErrorBox message={data.error ?? "The bot failed."} />}
+      {running && (
         <Loading
           label="Running the prediction bot…"
-          detail="Fitting one model per competition — the first run takes about ten seconds; later runs are much faster."
+          detail="Fitting one model per competition — the first run takes a couple of minutes; later runs are instant."
         />
       )}
 
-      {data && (
+      {data?.status === "ready" && (
         <>
           <div className="grid cols-4" style={{ marginBottom: 18 }}>
-            <StatCard label="Fixtures considered" value={data.considered} />
-            <StatCard label="Predictions made" value={data.predicted} />
-            <StatCard label="Skipped (no history)" value={data.skipped.length} />
-            <StatCard label="Window" value={`${data.window_days} days`} sub={formatDateTime(data.generated_at)} />
+            <StatCard label="Fixtures considered" value={data.considered ?? 0} />
+            <StatCard label="Predictions made" value={data.predicted ?? 0} />
+            <StatCard label="Skipped (no history)" value={(data.skipped ?? []).length} />
+            <StatCard
+              label="Window"
+              value={`${data.window_days ?? 0} days`}
+              sub={data.generated_at ? formatDateTime(data.generated_at) : undefined}
+            />
           </div>
 
-          {data.predicted === 0 && (
+          {(data.predicted ?? 0) === 0 && (
             <WarnBox>
               No upcoming fixtures were found in the window. The bot predicts fixtures that are
               already in the database (status <span className="mono">scheduled</span> or{" "}
@@ -127,7 +156,7 @@ export default function Predictions() {
             </WarnBox>
           )}
 
-          {data.predictions.length > 0 && (
+          {(data.predictions ?? []).length > 0 && (
             <Card title="Predicted fixtures">
               <table>
                 <thead>
@@ -144,7 +173,7 @@ export default function Predictions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.predictions.map((p) => {
+                  {(data.predictions ?? []).map((p) => {
                     const ox2 = p.probabilities.one_x_two;
                     return (
                       <tr key={p.match_id}>
@@ -215,7 +244,7 @@ export default function Predictions() {
             </Card>
           )}
 
-          {data.skipped.length > 0 && (
+          {(data.skipped ?? []).length > 0 && (
             <Card title="Skipped fixtures">
               <p className="muted small">
                 These fixtures had too little stored history for the model to produce an honest
@@ -229,7 +258,7 @@ export default function Predictions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.skipped.map((s) => (
+                  {(data.skipped ?? []).map((s) => (
                     <tr key={s.match_id}>
                       <td>
                         <TeamCrest name={s.home_team} size={18} />
