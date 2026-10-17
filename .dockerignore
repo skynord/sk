@@ -1,0 +1,20 @@
+# --- Secrets / local config ---
+.env
+.env.*
+
+# --- Python ---
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.egg-info/
+
+# --- Node / frontend ---
+**/node_modules/
+**/.tsbuildinfo
+
+# --- Runtime data ---
+data/*.db
+data/cache/
+data/raw/

@@ -1,0 +1,12 @@
+﻿services:
+  - type: web
+    name: sky-football
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: FA_DATABASE_URL
+        sync: false
+      - key: FA_ENVIRONMENT
+        value: production
