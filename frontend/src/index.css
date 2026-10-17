@@ -1038,3 +1038,135 @@ tbody tr:hover {
     opacity: 1 !important;
   }
 }
+
+/* ---- Ask Sky chat ---------------------------------------------------- */
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 160px);
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 4px 18px;
+}
+
+.msg {
+  display: flex;
+  max-width: 78%;
+}
+
+.msg.user {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+.msg.sky {
+  align-self: flex-start;
+}
+
+.bubble {
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-sm);
+}
+
+.msg.user .bubble {
+  background: var(--bg-elev-2);
+  border-color: var(--border-strong);
+}
+
+.bubble .text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-card {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-card-head {
+  margin-bottom: 4px;
+}
+
+.chat-card-match {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chat-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chip {
+  padding: 7px 13px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, transparent, var(--bg) 40%);
+  padding-bottom: 6px;
+}
+
+.chat-input input {
+  flex: 1;
+}
+
+.chat-input button {
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .msg {
+    max-width: 92%;
+  }
+}

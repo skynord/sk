@@ -2,10 +2,10 @@ import type {
   AnalysisOptions,
   AnalysisReport,
   BacktestResponse,
+  ChatReply,
   DataSource,
   IngestResult,
   League,
-  LiveResponse,
   MatchDetail,
   MatchList,
   ProviderInfo,
@@ -137,5 +137,9 @@ export const api = {
     refresh?: boolean;
   }) => request<UpcomingPredictions>(`/predictions/upcoming${query(params)}`),
 
-  live: (date?: string) => request<LiveResponse>(`/live${query({ date })}`),
+  chat: (message: string) =>
+    request<ChatReply>("/chat", {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
 };

@@ -1,6 +1,16 @@
 """API routers."""
 
-from app.api.routes import analysis, health, ingest, leagues, matches, models, predictions, value
+from app.api.routes import (
+    analysis,
+    chat,
+    health,
+    ingest,
+    leagues,
+    matches,
+    models,
+    predictions,
+    value,
+)
 
 routers = [
     health.router,
@@ -11,11 +21,13 @@ routers = [
     value.router,
     predictions.router,
     ingest.router,
+    chat.router,
 ]
 
 __all__ = [
     "routers",
     "analysis",
+    "chat",
     "health",
     "ingest",
     "leagues",

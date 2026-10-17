@@ -121,6 +121,15 @@ class Settings(BaseSettings):
     bot_default_limit: int = 50
     bot_loop_seconds: int = 3600
 
+    # --- Chat language model (optional) ----------------------------------
+    # Any OpenAI-compatible endpoint works (including free tiers).  Without a
+    # key the Ask Sky chat answers from its own composer, which is fully
+    # grounded in the model output above.
+    llm_api_key: str | None = None
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 20.0
+
     # --- CORS ------------------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
@@ -136,6 +145,7 @@ class Settings(BaseSettings):
         "football_data_org_key",
         "sportmonks_token",
         "live_provider",
+        "llm_api_key",
         mode="before",
     )
     @classmethod

@@ -3,7 +3,7 @@ import Dashboard from "./pages/Dashboard";
 import Matches from "./pages/Matches";
 import MatchAnalysis from "./pages/MatchAnalysis";
 import Predictions from "./pages/Predictions";
-import Live from "./pages/Live";
+import Ask from "./pages/Ask";
 
 type IconProps = { className?: string };
 
@@ -37,12 +37,11 @@ function IconSpark({ className }: IconProps) {
   );
 }
 
-function IconBroadcast({ className }: IconProps) {
+function IconChat({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="2.4" />
-      <path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 8.1a5.5 5.5 0 0 1 0 7.8" />
-      <path d="M5.5 5.5a9 9 0 0 0 0 13M18.5 5.5a9 9 0 0 1 0 13" />
+      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.4 9.4 0 0 1-2.9-.4L4 21l1.4-3.6A8.3 8.3 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z" />
+      <path d="M8.4 11.5h.01M12 11.5h.01M15.6 11.5h.01" />
     </svg>
   );
 }
@@ -51,7 +50,7 @@ const NAV = [
   { to: "/", label: "Dashboard", title: "Dashboard", Icon: IconGrid, end: true },
   { to: "/matches", label: "Matches", title: "Matches", Icon: IconList, end: false },
   { to: "/predictions", label: "Predictions", title: "Predictions", Icon: IconSpark, end: false },
-  { to: "/live", label: "Live & fixtures", title: "Live & fixtures", Icon: IconBroadcast, end: false },
+  { to: "/chat", label: "Ask Sky", title: "Ask Sky", Icon: IconChat, end: false },
 ];
 
 function titleFor(pathname: string): string {
@@ -99,7 +98,7 @@ export default function App() {
         <Route path="/matches" element={<Matches />} />
         <Route path="/matches/:id" element={<MatchAnalysis />} />
         <Route path="/predictions" element={<Predictions />} />
-        <Route path="/live" element={<Live />} />
+        <Route path="/chat" element={<Ask />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

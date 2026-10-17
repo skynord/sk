@@ -150,9 +150,8 @@ export default function Predictions() {
             <WarnBox>
               No upcoming fixtures were found in the window. The bot predicts fixtures that are
               already in the database (status <span className="mono">scheduled</span> or{" "}
-              <span className="mono">live</span>). If every stored match is historical, add a live
-              provider key in <span className="mono">.env</span> so upcoming fixtures can be
-              imported — see the <Link to="/live">Live &amp; fixtures</Link> page.
+              <span className="mono">live</span>). If every stored match is historical, import
+              upcoming fixtures first, then run the bot again.
             </WarnBox>
           )}
 

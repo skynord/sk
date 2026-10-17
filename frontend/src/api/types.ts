@@ -384,26 +384,38 @@ export interface UpcomingPredictions {
   predictions?: UpcomingPrediction[];
 }
 
-export interface LiveMatch {
-  provider_id: string;
-  local_match_id: number | null;
-  kickoff_utc: string;
-  status: string;
-  league: string;
-  country: string | null;
-  home_team: string;
-  away_team: string;
-  score: { home: number; away: number } | null;
-  ht_score: { home: number; away: number } | null;
-  venue: string | null;
+export interface ChatValue {
+  market: string;
+  selection: string;
+  decimal_odds: number;
+  expected_value: number;
+  is_positive_ev: boolean;
 }
 
-export interface LiveResponse {
-  available: boolean;
-  provider: string | null;
-  date: string | null;
-  reason?: string;
-  counts?: { live: number; upcoming: number; finished: number };
-  live: LiveMatch[];
-  upcoming: LiveMatch[];
+export interface ChatCard {
+  match_id: number;
+  kickoff_utc: string;
+  league: string | null;
+  home_team: string;
+  away_team: string;
+  pick_label: string;
+  pick_selection: string;
+  probability: number;
+  score: string;
+  expected_goals: { home: number; away: number };
+  confidence: string;
+  confidence_score?: number | null;
+  value: ChatValue | null;
+}
+
+export interface ChatReply {
+  reply: string;
+  intent: string;
+  cards: ChatCard[];
+  suggestions: string[];
+  pending: boolean;
+  job_status?: string;
+  job_error?: string | null;
+  generated_at?: string | null;
+  engine?: string;
 }
