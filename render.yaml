@@ -4,6 +4,9 @@
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
+    # Frankfurt keeps the API close to the Supabase database in eu-west-1,
+    # which is what the prediction batch spends its time waiting on.
+    region: frankfurt
     healthCheckPath: /api/health
     envVars:
       - key: FA_DATABASE_URL
