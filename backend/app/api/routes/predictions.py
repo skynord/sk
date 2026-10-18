@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.analysis import bot, bot_jobs
+from app.analysis import bot_jobs
 from app.api.deps import get_db
 from app.config import get_settings
 from app.db.models import Match

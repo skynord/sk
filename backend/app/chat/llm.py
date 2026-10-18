@@ -15,6 +15,16 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# Free-tier-friendly, OpenAI-compatible chat endpoints.  A user only has to
+# paste a free API key for one of these (plus the provider name) -- no install,
+# no local model, and every other setting falls back to a working default.
+PROVIDERS: dict[str, tuple[str, str]] = {
+    "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.0-flash"),
+    "openrouter": ("https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct:free"),
+    "openai": ("https://api.openai.com/v1", "gpt-4o-mini"),
+}
+
 SYSTEM_PROMPT = (
     "You are Sky, a football analysis assistant. You are given a question and a "
     "set of FACTS computed by a statistical model. Answer using only those facts. "
@@ -25,19 +35,30 @@ SYSTEM_PROMPT = (
 )
 
 
+def _endpoint() -> tuple[str | None, str | None]:
+    """Effective ``(base_url, model)``: explicit settings win, else the provider default."""
+    settings = get_settings()
+    default_url, default_model = PROVIDERS.get(settings.llm_provider, ("", ""))
+    base = settings.llm_base_url or default_url or None
+    model = settings.llm_model or default_model or None
+    return base, model
+
+
 def is_enabled() -> bool:
-    """True when a language-model endpoint is configured."""
-    return bool(get_settings().llm_api_key)
+    """True when a language-model endpoint is fully configured."""
+    base, model = _endpoint()
+    return bool(get_settings().llm_api_key) and bool(base) and bool(model)
 
 
 def phrase(question: str, facts: str) -> str | None:
     """Ask the configured model to reword the facts, or ``None`` on any trouble."""
     settings = get_settings()
-    if not settings.llm_api_key:
+    base, model = _endpoint()
+    if not settings.llm_api_key or not base or not model:
         return None
-    url = settings.llm_base_url.rstrip("/") + "/chat/completions"
+    url = base.rstrip("/") + "/chat/completions"
     payload = {
-        "model": settings.llm_model,
+        "model": model,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Question: {question}\n\nFACTS:\n{facts}"},

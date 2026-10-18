@@ -287,3 +287,72 @@ def test_chat_status_endpoint(client, monkeypatch) -> None:
     assert body["status"] == "running"
     assert body["window_days"] == engine.CHAT_DAYS
     assert "suggestions" in body
+
+
+def _use_llm_settings(monkeypatch, **overrides: Any) -> None:
+    """Point ``app.chat.llm`` at a fresh Settings built from ``overrides``."""
+    from app.chat import llm
+    from app.config import Settings
+
+    monkeypatch.setattr(llm, "get_settings", lambda: Settings(**overrides))
+
+
+def test_llm_disabled_without_api_key(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(monkeypatch, llm_api_key=None, llm_provider="groq")
+    assert llm.is_enabled() is False
+
+
+def test_groq_provider_defaults_apply(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(
+        monkeypatch, llm_api_key="gsk_free_key", llm_provider="groq",
+        llm_base_url=None, llm_model=None,
+    )
+    assert llm.is_enabled() is True
+    assert llm._endpoint() == (
+        "https://api.groq.com/openai/v1",
+        "llama-3.3-70b-versatile",
+    )
+
+
+def test_provider_defaults_cover_free_tiers(monkeypatch) -> None:
+    from app.chat import llm
+
+    for provider in ("groq", "gemini", "openrouter", "openai"):
+        _use_llm_settings(
+            monkeypatch, llm_api_key="k", llm_provider=provider,
+            llm_base_url=None, llm_model=None,
+        )
+        base, model = llm._endpoint()
+        assert base and model, provider
+
+
+def test_explicit_base_url_and_model_override_provider(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(
+        monkeypatch, llm_api_key="k", llm_provider="groq",
+        llm_base_url="https://example.test/v1", llm_model="my-model",
+    )
+    assert llm._endpoint() == ("https://example.test/v1", "my-model")
+
+
+def test_unknown_provider_without_url_is_disabled(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(
+        monkeypatch, llm_api_key="k", llm_provider="not-a-real-one",
+        llm_base_url=None, llm_model=None,
+    )
+    assert llm.is_enabled() is False
+
+
+def test_provider_name_is_normalised_and_blank_falls_back() -> None:
+    from app.config import Settings
+
+    assert Settings(llm_provider="  GROQ ").llm_provider == "groq"
+    assert Settings(llm_provider="").llm_provider == "openai"
+    assert Settings(llm_provider=None).llm_provider == "openai"

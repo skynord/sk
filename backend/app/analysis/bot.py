@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.analysis import features
 from app.analysis.engine import AnalysisOptions, build_analysis
-from app.db.models import Match, Team
+from app.db.models import Match
 
 UPCOMING_STATUSES = ("scheduled", "live")
 LIVE_GRACE_HOURS = 6

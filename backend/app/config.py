@@ -141,12 +141,16 @@ class Settings(BaseSettings):
     bot_loop_seconds: int = 3600
 
     # --- Chat language model (optional) ----------------------------------
-    # Any OpenAI-compatible endpoint works (including free tiers).  Without a
-    # key the Ask Sky chat answers from its own composer, which is fully
-    # grounded in the model output above.
+    # Any OpenAI-compatible endpoint works, including free tiers.  Set just a
+    # provider name plus its free API key (``llm_provider`` + ``llm_api_key``)
+    # and the base URL and model fall back to that provider's free-tier
+    # defaults; blanking them or leaving them unset keeps those defaults.
+    # Without a key the Ask Sky chat answers from its own composer, which is
+    # fully grounded in the model output above.
     llm_api_key: str | None = None
-    llm_base_url: str = "https://api.openai.com/v1"
-    llm_model: str = "gpt-4o-mini"
+    llm_provider: str = "openai"
+    llm_base_url: str | None = None
+    llm_model: str | None = None
     llm_timeout_seconds: float = 20.0
 
     # --- CORS ------------------------------------------------------------
@@ -165,12 +169,26 @@ class Settings(BaseSettings):
         "sportmonks_token",
         "live_provider",
         "llm_api_key",
+        "llm_base_url",
+        "llm_model",
         mode="before",
     )
     @classmethod
     def _blank_to_none(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
+        if isinstance(value, str) and value is not None:
+            return value.strip()
+        return value
+
+    @field_validator("llm_provider", mode="before")
+    @classmethod
+    def _normalise_provider(cls, value: object) -> object:
+        if value is None:
+            return "openai"
+        if isinstance(value, str):
+            cleaned = value.strip().lower()
+            return cleaned or "openai"
         return value
 
     @property
