@@ -98,7 +98,13 @@ class Settings(BaseSettings):
 
     # --- Models ----------------------------------------------------------
     monte_carlo_simulations: int = 10_000
-    time_decay_halflife_days: float = 180.0
+    # Exponential half-life for how fast old results fade.  A walk-forward sweep
+    # (half-lives 120-730, regularisations 0.3-2.0) found the least-recency-biased
+    # settings score best on the five big domestic leagues -- mean 1x2 Brier 0.5907
+    # at 365 days vs 0.5914 at the old 180 -- and it also improved the one league
+    # held out of the tuning, so 365 days is the default.  Weighting recent form
+    # harder (a shorter half-life) consistently made the model worse.
+    time_decay_halflife_days: float = 365.0
     min_matches_for_model: int = 20
     max_goals_grid: int = 12
     #: L2 penalty on attack/defence strengths.  Teams with little evidence

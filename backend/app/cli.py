@@ -581,7 +581,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument("--league-id", type=int, required=True)
     p_bt.add_argument("--min-train", type=int, default=60)
     p_bt.add_argument("--retrain-every", type=int, default=10)
-    p_bt.add_argument("--halflife", type=float, default=180.0, help="time-decay half-life in days")
+    p_bt.add_argument("--halflife", type=float, default=365.0, help="time-decay half-life in days")
     p_bt.add_argument(
         "--regularization", type=float, default=1.0,
         help="L2 penalty on attack/defence strengths (shrinks thin-sample teams)",

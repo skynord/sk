@@ -83,7 +83,7 @@ class BacktestRequest(BaseModel):
     league_id: int
     min_train: int = Field(default=40, ge=10, le=2000)
     retrain_every: int = Field(default=5, ge=1, le=200)
-    halflife_days: float = Field(default=180.0, gt=0, le=3650)
+    halflife_days: float = Field(default=365.0, gt=0, le=3650)
     regularization: float = Field(default=1.0, ge=0.0, le=10.0)
     use_rest: bool = False
     use_form: bool = False

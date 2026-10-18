@@ -398,6 +398,14 @@ class TestThinCupShrinkage:
 
         assert Settings().model_regularization > 0
 
+    def test_default_halflife_is_a_long_window(self):
+        from app.config import Settings
+
+        # A walk-forward sweep (half-lives 120-730, big five leagues) found that
+        # weighting recent form harder consistently scored worse, so the default
+        # half-life is deliberately long.
+        assert Settings().time_decay_halflife_days >= 300
+
 
 class TestFormCovariate:
     def test_with_form_uses_only_prior_matches(self):

@@ -38,7 +38,7 @@ OUTCOME_INDEX = {"home": 0, "draw": 1, "away": 2}
 class BacktestConfig:
     min_train: int = 40
     retrain_every: int = 5
-    halflife_days: float = 180.0
+    halflife_days: float = 365.0
     kmax: int = 10
     totals_line: float = 2.5
     regularization: float = 1.0
