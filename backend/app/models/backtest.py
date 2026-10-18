@@ -24,6 +24,7 @@ from app.models.dixon_coles import (
     MODEL_VERSION,
     DixonColesModel,
     MatchRecord,
+    with_form,
     with_rest,
 )
 from app.models.markets import btts as btts_market
@@ -42,6 +43,8 @@ class BacktestConfig:
     totals_line: float = 2.5
     regularization: float = 1.0
     use_rest: bool = False
+    use_form: bool = False
+    form_window: int = 5
 
     def to_dict(self) -> dict:
         return {
@@ -52,6 +55,8 @@ class BacktestConfig:
             "totals_line": self.totals_line,
             "regularization": self.regularization,
             "use_rest": self.use_rest,
+            "use_form": self.use_form,
+            "form_window": self.form_window,
         }
 
 
@@ -85,18 +90,26 @@ def _fit(
     halflife_days: float,
     regularization: float = 1.0,
     use_rest: bool = False,
+    use_form: bool = False,
+    form_window: int = 5,
 ) -> DixonColesModel:
     return DixonColesModel.fit(
         records,
         halflife_days=halflife_days,
         regularization=regularization,
         use_rest=use_rest,
+        use_form=use_form,
+        form_window=form_window,
     )
 
 
 def walk_forward(records: list[MatchRecord], config: BacktestConfig | None = None) -> BacktestReport:
     cfg = config or BacktestConfig()
-    ordered = with_rest(records) if cfg.use_rest else sorted(records, key=lambda r: r.date)
+    ordered = sorted(records, key=lambda r: r.date)
+    if cfg.use_rest:
+        ordered = with_rest(ordered)
+    if cfg.use_form:
+        ordered = with_form(ordered, cfg.form_window)
     warnings: list[str] = []
 
     if len(ordered) <= cfg.min_train:
@@ -130,7 +143,14 @@ def walk_forward(records: list[MatchRecord], config: BacktestConfig | None = Non
             if not {test.home, test.away} <= {r.home for r in train} | {r.away for r in train}:
                 continue
             try:
-                model = _fit(train, cfg.halflife_days, cfg.regularization, cfg.use_rest)
+                model = _fit(
+                    train,
+                    cfg.halflife_days,
+                    cfg.regularization,
+                    cfg.use_rest,
+                    cfg.use_form,
+                    cfg.form_window,
+                )
             except ValueError:
                 continue
             counts = np.array(
@@ -157,7 +177,15 @@ def walk_forward(records: list[MatchRecord], config: BacktestConfig | None = Non
             and test.rest_away is not None
         ):
             rest_diff = test.rest_home - test.rest_away
-        matrix = model.score_matrix(test.home, test.away, kmax=cfg.kmax, rest_diff=rest_diff)
+        form_diff = None
+        if cfg.use_form:
+            mean = model.params.form_mean or 0.0
+            fh = test.form_home if test.form_home is not None else mean
+            fa = test.form_away if test.form_away is not None else mean
+            form_diff = fh - fa
+        matrix = model.score_matrix(
+            test.home, test.away, kmax=cfg.kmax, rest_diff=rest_diff, form_diff=form_diff
+        )
         probs_1x2 = one_x_two(matrix)
         x1x2_probs.append([probs_1x2["home"], probs_1x2["draw"], probs_1x2["away"]])
         x1x2_true.append(OUTCOME_INDEX[outcome_from_score(test.home_goals, test.away_goals)])

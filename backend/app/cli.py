@@ -351,6 +351,8 @@ def cmd_backtest(args: argparse.Namespace) -> int:
             halflife_days=args.halflife,
             regularization=args.regularization,
             use_rest=args.use_rest,
+            use_form=args.use_form,
+            form_window=args.form_window,
         )
         report = bt.walk_forward(records, config)
         run = ModelRun(
@@ -420,6 +422,8 @@ def cmd_tune(args: argparse.Namespace) -> int:
                         kmax=kmax,
                         regularization=regular,
                         use_rest=args.use_rest,
+                        use_form=args.use_form,
+                        form_window=args.form_window,
                     ),
                 )
                 metric = next((m for m in report.markets if m.market == args.market), None)
@@ -586,6 +590,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--use-rest", action="store_true",
         help="fit and apply a rest-difference (time off) term",
     )
+    p_bt.add_argument(
+        "--use-form", action="store_true",
+        help="fit and apply a recent-form (points-per-game) differential term",
+    )
+    p_bt.add_argument(
+        "--form-window", type=int, default=5,
+        help="how many recent matches define form (with --use-form)",
+    )
     p_bt.set_defaults(func=cmd_backtest)
 
     p_tune = sub.add_parser(
@@ -610,6 +622,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_tune.add_argument(
         "--use-rest", action="store_true",
         help="fit and apply a rest-difference (time off) term",
+    )
+    p_tune.add_argument(
+        "--use-form", action="store_true",
+        help="fit and apply a recent-form (points-per-game) differential term",
+    )
+    p_tune.add_argument(
+        "--form-window", type=int, default=5,
+        help="how many recent matches define form (with --use-form)",
     )
     p_tune.set_defaults(func=cmd_tune)
 

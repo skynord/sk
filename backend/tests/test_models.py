@@ -11,6 +11,7 @@ from app.models.dixon_coles import (
     DixonColesModel,
     MatchRecord,
     time_decay_weights,
+    with_form,
     with_rest,
 )
 from app.models.markets import all_markets, one_x_two, team_totals, totals
@@ -396,6 +397,109 @@ class TestThinCupShrinkage:
         from app.config import Settings
 
         assert Settings().model_regularization > 0
+
+
+class TestFormCovariate:
+    def test_with_form_uses_only_prior_matches(self):
+        base = datetime(2024, 1, 1, tzinfo=UTC)
+
+        def rec(home, away, day, hg, ag):
+            return MatchRecord(home=home, away=away, home_goals=hg, away_goals=ag,
+                               date=base + timedelta(days=day))
+
+        # A wins every match it plays before its third outing; form must reflect
+        # those prior results only, never the match being annotated.
+        out = with_form(
+            [
+                rec("A", "B", 0, 3, 0),  # A wins (3 pts)
+                rec("A", "C", 7, 3, 0),  # A wins again
+                rec("A", "D", 14, 0, 3),  # A loses this one (annotate before result)
+            ],
+            window=5,
+        )
+        assert out[0].form_home is None and out[0].form_away is None
+        assert out[1].form_home == pytest.approx(3.0)  # one prior win
+        assert out[2].form_home == pytest.approx(3.0)  # two prior wins
+        # The side that lost match 0 has 0 points in its only prior match.
+        assert out[1].form_away is None  # C had no prior match
+
+    def test_with_form_window_averages_last_n(self):
+        base = datetime(2024, 1, 1, tzinfo=UTC)
+        records = []
+        for i in range(4):
+            records.append(
+                MatchRecord(home="A", away=f"X{i}", home_goals=3, away_goals=0,
+                            date=base + timedelta(days=i * 7))
+            )
+        out = with_form(records, window=2)
+        assert out[3].form_home == pytest.approx(3.0)
+
+    def test_form_coeff_only_when_enabled(self):
+        recs = _synthetic_records()
+        plain = DixonColesModel.fit(recs, halflife_days=100_000)
+        formed = DixonColesModel.fit(recs, halflife_days=100_000, use_form=True)
+        assert plain.params.form_coeff is None
+        assert plain.params.form_window is None
+        assert formed.params.form_coeff is not None
+        assert formed.params.form_window == 5
+
+    def test_form_diff_shifts_goals_in_coeff_direction(self):
+        model = DixonColesModel.fit(
+            _synthetic_records(), halflife_days=100_000, use_form=True
+        )
+        coeff = model.params.form_coeff
+        assert coeff is not None
+        lh0, la0 = model.expected_goals("Alpha", "Beta", form_diff=0.0)
+        lh1, la1 = model.expected_goals("Alpha", "Beta", form_diff=2.0)
+        assert np.sign(lh1 - lh0) == np.sign(coeff)
+        assert np.sign(la1 - la0) == -np.sign(coeff)
+
+    def test_form_diff_ignored_without_form_model(self):
+        model = DixonColesModel.fit(_synthetic_records(), halflife_days=100_000)
+        base = model.expected_goals("Alpha", "Beta")
+        shifted = model.expected_goals("Alpha", "Beta", form_diff=2.0)
+        assert shifted == base
+
+    def test_recovers_a_planted_form_effect(self):
+        from dataclasses import replace
+
+        def build(true_coeff: float, seed: int) -> float:
+            rng = np.random.default_rng(seed)
+            base = datetime(2023, 1, 1, tzinfo=UTC)
+            teams = [f"T{i:02d}" for i in range(20)]
+            raw: list[MatchRecord] = []
+            for i in range(6000):
+                home = str(rng.choice(teams))
+                away = str(rng.choice([t for t in teams if t != home]))
+                raw.append(MatchRecord(home=home, away=away, home_goals=0, away_goals=0,
+                                       date=base + timedelta(days=i)))
+            # A first pass of ordinary results establishes each side's real form,
+            # then goals are re-drawn from a planted form effect.  Form is a noisy
+            # proxy that overlaps team strength, so the fitted coefficient is
+            # attenuated well below the planted value; the test only requires it
+            # to be near zero with no effect and clearly positive with one.
+            stated = [
+                replace(m, home_goals=int(rng.poisson(1.3)), away_goals=int(rng.poisson(1.0)))
+                for m in raw
+            ]
+            annotated = with_form(stated, window=5)
+            records: list[MatchRecord] = []
+            for m in annotated:
+                diff = (m.form_home or 0.0) - (m.form_away or 0.0)
+                lh = 1.3 * np.exp(true_coeff * diff)
+                la = 1.0 * np.exp(-true_coeff * diff)
+                records.append(replace(m,
+                                       home_goals=int(rng.poisson(lh)),
+                                       away_goals=int(rng.poisson(la))))
+            model = DixonColesModel.fit(records, halflife_days=100_000, use_form=True)
+            assert model.params.form_coeff is not None
+            return model.params.form_coeff
+
+        flat = build(0.0, 3)
+        planted = build(0.6, 3)
+        assert abs(flat) < 0.03  # no spurious signal when form does not matter
+        assert 0.05 < planted < 0.30  # a real effect is picked up, attenuated
+        assert planted > flat
 
 
 class TestSimulate:

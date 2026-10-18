@@ -71,3 +71,19 @@ class TestWalkForward:
         cfg = bt.BacktestConfig(min_train=42, retrain_every=7)
         assert cfg.to_dict()["min_train"] == 42
         assert cfg.to_dict()["retrain_every"] == 7
+
+    def test_use_form_round_trips(self):
+        cfg = bt.BacktestConfig(use_form=True, form_window=8)
+        assert cfg.to_dict()["use_form"] is True
+        assert cfg.to_dict()["form_window"] == 8
+
+    def test_walk_forward_runs_with_form(self):
+        records = _records()
+        report = bt.walk_forward(
+            records,
+            bt.BacktestConfig(min_train=100, retrain_every=20, use_form=True),
+        )
+        assert report.n_eval > 100
+        assert report.config["use_form"] is True
+        markets = {m.market: m for m in report.markets}
+        assert markets["1x2"].brier < markets["1x2"].baseline_brier

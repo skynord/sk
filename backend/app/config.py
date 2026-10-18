@@ -109,6 +109,19 @@ class Settings(BaseSettings):
     #: domestic leagues ranks 1.0 best (lower log-loss than 0.0), so it is the
     #: default.
     model_regularization: float = 1.0
+    #: Fit and apply a recent-form covariate: the points-per-game differential
+    #: between the two sides over their last ``form_window`` matches.  The
+    #: coefficient is estimated by maximum likelihood alongside attack/defence,
+    #: so the training data decides how much form matters rather than it being
+    #: weighted by hand.  Left OFF by default because a walk-forward backtest on
+    #: the five big domestic leagues (off vs on, windows 3/5/10 and half-lives
+    #: 60-365) found it made Brier and log-loss very slightly worse in every
+    #: league: the time-decay weighting already captures recent form, and points
+    #: per game is largely collinear with the strengths the model fits.  Kept as
+    #: an option for experimentation, not a default.
+    model_use_form: bool = False
+    #: How many recent matches define a side's form (points per game).
+    form_window: int = 5
     #: Competition "country" labels that mark a cross-border cup rather than a
     #: domestic league (openfootball files the UEFA competitions under
     #: "Europe").  A fixture in one of these pools the two clubs' domestic-league

@@ -25,6 +25,8 @@ class AnalysisOptionsRequest(BaseModel):
     halflife_days: float | None = Field(default=None, gt=0, le=3650)
     regularization: float | None = Field(default=None, ge=0.0, le=10.0)
     use_rest: bool = False
+    use_form: bool | None = None
+    form_window: int | None = Field(default=None, ge=1, le=30)
     lookback_days: int = Field(default=1200, ge=30, le=7300)
     include_asian_handicap: bool = True
     manual_odds: list[ManualOddInput] | None = None
@@ -84,6 +86,8 @@ class BacktestRequest(BaseModel):
     halflife_days: float = Field(default=180.0, gt=0, le=3650)
     regularization: float = Field(default=1.0, ge=0.0, le=10.0)
     use_rest: bool = False
+    use_form: bool = False
+    form_window: int = Field(default=5, ge=1, le=30)
     totals_line: float = Field(default=2.5, gt=0, le=10)
 
 

@@ -24,6 +24,8 @@ def _options(payload: AnalysisOptionsRequest | None) -> engine.AnalysisOptions:
         halflife_days=payload.halflife_days,
         regularization=payload.regularization,
         use_rest=payload.use_rest,
+        use_form=payload.use_form,
+        form_window=payload.form_window,
         lookback_days=payload.lookback_days,
         include_asian_handicap=payload.include_asian_handicap,
         manual_odds=[o.model_dump() for o in payload.manual_odds] if payload.manual_odds else None,

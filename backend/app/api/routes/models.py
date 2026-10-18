@@ -72,6 +72,8 @@ def run_backtest(payload: BacktestRequest, db: Session = Depends(get_db)) -> dic
         totals_line=payload.totals_line,
         regularization=payload.regularization,
         use_rest=payload.use_rest,
+        use_form=payload.use_form,
+        form_window=payload.form_window,
     )
     report = backtest_mod.walk_forward(records, config)
 

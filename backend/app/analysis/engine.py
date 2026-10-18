@@ -52,6 +52,13 @@ class AnalysisOptions:
     #: off).  The coefficient is estimated from the training matches, not
     #: hand-tuned; it is off by default.
     use_rest: bool = False
+    #: Fit and apply a recent-form term: the points-per-game differential between
+    #: the two sides over their last ``form_window`` matches.  As with rest, the
+    #: coefficient is estimated from the training matches, so the data decides
+    #: how much form matters rather than it being weighted by hand.  None follows
+    #: the configured default.
+    use_form: bool | None = None
+    form_window: int | None = None
     lookback_days: int = 1200
     include_asian_handicap: bool = True
     manual_odds: list[dict[str, Any]] | None = None
@@ -304,7 +311,8 @@ _FIT_CACHE_LOCK = threading.Lock()
 
 def _fit_signature(records: list[MatchRecord], halflife: float,
                    regularization: float, extra_teams: frozenset[str],
-                   use_rest: bool, per_league_intercepts: bool) -> tuple[Any, ...]:
+                   use_rest: bool, per_league_intercepts: bool,
+                   use_form: bool = False, form_window: int = 5) -> tuple[Any, ...]:
     roster = frozenset([r.home for r in records] + [r.away for r in records])
     goals = sum(r.home_goals + r.away_goals for r in records)
     leagues = frozenset(r.league for r in records if r.league)
@@ -319,6 +327,8 @@ def _fit_signature(records: list[MatchRecord], halflife: float,
         hash(extra_teams),
         use_rest,
         per_league_intercepts,
+        use_form,
+        form_window,
         hash(leagues),
     )
 
@@ -327,7 +337,9 @@ def fit_model(records: list[MatchRecord], halflife_days: float | None,
               regularization: float = 0.0,
               extra_teams: frozenset[str] = frozenset(),
               use_rest: bool = False,
-              per_league_intercepts: bool = False) -> DixonColesModel:
+              per_league_intercepts: bool = False,
+              use_form: bool = False,
+              form_window: int = 5) -> DixonColesModel:
     """Fit the Dixon-Coles model, reusing an identical recent fit.
 
     The prediction bot analyses many fixtures at once; fixtures in the same
@@ -343,9 +355,10 @@ def fit_model(records: list[MatchRecord], halflife_days: float | None,
             records, halflife_days=halflife, regularization=regularization,
             extra_teams=sorted(extra_teams), use_rest=use_rest,
             per_league_intercepts=per_league_intercepts,
+            use_form=use_form, form_window=form_window,
         )
     key = _fit_signature(records, halflife, regularization, extra_teams, use_rest,
-                         per_league_intercepts)
+                         per_league_intercepts, use_form, form_window)
     with _FIT_CACHE_LOCK:
         cached = _FIT_CACHE.get(key)
         if cached is not None:
@@ -355,6 +368,7 @@ def fit_model(records: list[MatchRecord], halflife_days: float | None,
         records, halflife_days=halflife, regularization=regularization,
         extra_teams=sorted(extra_teams), use_rest=use_rest,
         per_league_intercepts=per_league_intercepts,
+        use_form=use_form, form_window=form_window,
     )
     with _FIT_CACHE_LOCK:
         _FIT_CACHE[key] = model
@@ -590,6 +604,10 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
     regularization = (
         settings.model_regularization if opts.regularization is None else opts.regularization
     )
+    # Form is a fitted covariate like rest: whether it is on, and the window it
+    # averages over, follow the configured defaults unless the request overrides.
+    use_form = settings.model_use_form if opts.use_form is None else opts.use_form
+    form_window = settings.form_window if opts.form_window is None else opts.form_window
     roster = {r.home for r in records} | {r.away for r in records}
     # Teams with no completed match in the window are still modelled, at the
     # league average, so a promoted or brand-new side can be analysed rather than
@@ -600,6 +618,7 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
         records, opts.halflife_days, regularization,
         extra_teams=missing_teams, use_rest=opts.use_rest,
         per_league_intercepts=per_league_intercepts,
+        use_form=use_form, form_window=form_window,
     )
     if not (model.has_team(model_home) and model.has_team(model_away)):
         missing = [name for name in (model_home, model_away) if not model.has_team(name)]
@@ -614,8 +633,24 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
         away_rest = features.rest_and_congestion(db, feat_away_id, before).get("rest_days")
         if home_rest is not None and away_rest is not None:
             rest_diff = float(home_rest - away_rest)
+    # Recent-form differential (points per game over the fitted window), so the
+    # prediction uses the same feature the model was trained with.
+    form_diff = None
+    if use_form and model.params.form_coeff is not None:
+        mean = model.params.form_mean or 0.0
+        home_form = features.form_summary(
+            features.recent_form(db, feat_home_id, before, window=form_window)
+        ).points_per_match
+        away_form = features.form_summary(
+            features.recent_form(db, feat_away_id, before, window=form_window)
+        ).points_per_match
+        form_diff = float(
+            (home_form if home_form is not None else mean)
+            - (away_form if away_form is not None else mean)
+        )
     lambda_home, lambda_away = model.expected_goals(
-        model_home, model_away, rest_diff=rest_diff, league=str(match.league_id)
+        model_home, model_away, rest_diff=rest_diff, form_diff=form_diff,
+        league=str(match.league_id),
     )
     rho = model.params.rho
 
@@ -848,6 +883,8 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
                     "seed": opts.seed,
                     "regularization": regularization,
                     "use_rest": opts.use_rest,
+                    "use_form": use_form,
+                    "form_window": form_window,
                 },
             },
             training_start=records[0].date,

@@ -52,6 +52,10 @@ class MatchRecord:
     #: Days since each side last played, filled by :func:`with_rest`.
     rest_home: float | None = None
     rest_away: float | None = None
+    #: Points-per-game form over each side's last few matches, filled by
+    #: :func:`with_form`.  ``None`` means the team had no prior match in the set.
+    form_home: float | None = None
+    form_away: float | None = None
 
 
 @dataclass
@@ -69,6 +73,15 @@ class DixonColesParams:
     #: Fitted effect of a rest advantage (log goals per extra rest day), or
     #: ``None`` when the model was fitted without rest covariates.
     rest_coeff: float | None = None
+    #: Fitted effect of the recent-form (points-per-game) differential: log goals
+    #: per point-per-game the home side is the better in-form team, or ``None``
+    #: when the model was fitted without form covariates.
+    form_coeff: float | None = None
+    #: Number of recent matches each side's form was averaged over.
+    form_window: int | None = None
+    #: Mean form across the training set, used to fill teams with no history so
+    #: their differential is neutral.
+    form_mean: float | None = None
     #: Per-competition intercept offsets (log scale) relative to the reference
     #: competition, so a team's attack/defence is comparable across leagues.
     #: Empty when the model was fitted on a single competition.
@@ -124,6 +137,46 @@ def with_rest(records: Sequence[MatchRecord]) -> list[MatchRecord]:
     return out
 
 
+def _points_for(record: MatchRecord, *, home: bool) -> int:
+    if record.home_goals == record.away_goals:
+        return 1
+    won = record.home_goals > record.away_goals
+    return 3 if (won == home) else 0
+
+
+def with_form(records: Sequence[MatchRecord], window: int = 5) -> list[MatchRecord]:
+    """Annotate each record with each side's points-per-game form.
+
+    Form is the side's average points over its last ``window`` matches *before*
+    that row, in chronological order, so no future result leaks backwards.  A
+    team with no prior match in the set gets ``None``; the fit fills it with the
+    training-set mean so its differential stays neutral.
+    """
+    if window < 1:
+        raise ValueError("form window must be at least one match")
+    ordered = sorted(records, key=lambda r: r.date)
+    recent: dict[str, list[int]] = {}
+    out: list[MatchRecord] = []
+    for record in ordered:
+        out.append(
+            replace(
+                record,
+                form_home=_recent_ppg(recent.get(record.home), window),
+                form_away=_recent_ppg(recent.get(record.away), window),
+            )
+        )
+        recent.setdefault(record.home, []).append(_points_for(record, home=True))
+        recent.setdefault(record.away, []).append(_points_for(record, home=False))
+    return out
+
+
+def _recent_ppg(history: list[int] | None, window: int) -> float | None:
+    if not history:
+        return None
+    recent = history[-window:]
+    return sum(recent) / len(recent)
+
+
 def _tau_vector(hg: np.ndarray, ag: np.ndarray, lh: np.ndarray, la: np.ndarray,
                 rho: float) -> np.ndarray:
     tau = np.ones_like(lh)
@@ -159,10 +212,16 @@ class DixonColesModel:
         max_iter: int = 500,
         extra_teams: Sequence[str] = (),
         use_rest: bool = False,
+        use_form: bool = False,
+        form_window: int = 5,
         per_league_intercepts: bool = False,
     ) -> DixonColesModel:
         if not records:
             raise ValueError("cannot fit Dixon-Coles model with no matches")
+        # Form is derived here (from the records' own dates) so a caller cannot
+        # accidentally pass form computed with a future result mixed in.
+        if use_form:
+            records = list(with_form(records, form_window))
 
         teams = sorted(
             {r.home for r in records} | {r.away for r in records} | set(extra_teams)
@@ -202,10 +261,31 @@ class DixonColesModel:
 
         # Parameter vector: [intercept, home_adv, rho, attack_1..attack_{n-1},
         #                     defence_0..defence_{n-1}, league_1..league_{L-1},
-        #                     (rest_coeff)]
+        #                     (rest_coeff), (form_coeff)]
         n_rest = 1 if use_rest else 0
         n_base = 3 + (n - 1) + n
-        x0 = np.zeros(n_base + n_league + n_rest)
+
+        # Recent-form (points-per-game) differential.  Teams with no history take
+        # the training-set mean, so a missing side contributes a neutral 0.
+        form_diff = np.zeros(len(records))
+        form_mean: float | None = None
+        n_form = 0
+        if use_form:
+            values = [
+                v for r in records for v in (r.form_home, r.form_away) if v is not None
+            ]
+            if values:
+                form_mean = float(sum(values) / len(values))
+                form_diff = np.array(
+                    [
+                        (r.form_home if r.form_home is not None else form_mean)
+                        - (r.form_away if r.form_away is not None else form_mean)
+                        for r in records
+                    ]
+                )
+                n_form = 1
+
+        x0 = np.zeros(n_base + n_league + n_rest + n_form)
         x0[0] = np.log(mean_away)
         x0[1] = np.log(mean_home) - np.log(mean_away)
 
@@ -215,6 +295,7 @@ class DixonColesModel:
             + [(-3.5, 3.5)] * n
             + [(-2.5, 2.5)] * n_league
             + ([(-0.03, 0.03)] if n_rest else [])
+            + ([(-1.0, 1.0)] if n_form else [])
         )
 
         rest_diff = np.zeros(len(records))
@@ -226,9 +307,11 @@ class DixonColesModel:
                 ]
             )
 
+        cov_start = n_base + n_league
+
         def unpack(
             x: np.ndarray,
-        ) -> tuple[np.ndarray, np.ndarray, float, float, float, float, np.ndarray]:
+        ) -> tuple[np.ndarray, np.ndarray, float, float, float, float, float, np.ndarray]:
             intercept = x[0]
             home_adv = x[1]
             rho = x[2]
@@ -239,14 +322,25 @@ class DixonColesModel:
             league_off = np.zeros(len(league_names))
             if n_league:
                 league_off[1:] = x[n_base : n_base + n_league]
-            rest_coeff = float(x[-1]) if n_rest else 0.0
-            return attack, defence, intercept, home_adv, rho, rest_coeff, league_off
+            rest_coeff = float(x[cov_start]) if n_rest else 0.0
+            form_coeff = float(x[cov_start + n_rest]) if n_form else 0.0
+            return (
+                attack,
+                defence,
+                intercept,
+                home_adv,
+                rho,
+                rest_coeff,
+                form_coeff,
+                league_off,
+            )
 
         def neg_log_likelihood(x: np.ndarray) -> float:
-            attack, defence, intercept, home_adv, rho, rest_coeff, league_off = unpack(x)
+            attack, defence, intercept, home_adv, rho, rest_coeff, form_coeff, league_off = unpack(x)
             base = intercept + league_off[league_of] if n_league else intercept
-            lh = np.exp(base + attack[hi] - defence[ai] + home_adv + rest_coeff * rest_diff)
-            la = np.exp(base + attack[ai] - defence[hi] - rest_coeff * rest_diff)
+            edge = rest_coeff * rest_diff + form_coeff * form_diff
+            lh = np.exp(base + attack[hi] - defence[ai] + home_adv + edge)
+            la = np.exp(base + attack[ai] - defence[hi] - edge)
             log_p = stats.poisson.logpmf(hg, lh) + stats.poisson.logpmf(ag, la)
             log_p += np.log(_tau_vector(hg, ag, lh, la, rho))
             weighted = weights * log_p
@@ -263,7 +357,7 @@ class DixonColesModel:
             options={"maxiter": max_iter, "maxfun": 100000},
         )
 
-        attack, defence, intercept, home_adv, rho, rest_coeff, league_off = unpack(result.x)
+        attack, defence, intercept, home_adv, rho, rest_coeff, form_coeff, league_off = unpack(result.x)
         params = DixonColesParams(
             teams=teams,
             attack={t: float(attack[i]) for i, t in enumerate(teams)},
@@ -276,6 +370,9 @@ class DixonColesModel:
             n_matches=len(records),
             reference_date=ref,
             rest_coeff=(float(rest_coeff) if n_rest else None),
+            form_coeff=(float(form_coeff) if n_form else None),
+            form_window=(int(form_window) if n_form else None),
+            form_mean=form_mean,
             league_intercepts={
                 name: float(league_off[i]) for i, name in enumerate(league_names)
             },
@@ -290,7 +387,8 @@ class DixonColesModel:
 
     def expected_goals(
         self, home: str, away: str, *, neutral_venue: bool = False,
-        rest_diff: float | None = None, league: str | None = None,
+        rest_diff: float | None = None, form_diff: float | None = None,
+        league: str | None = None,
     ) -> tuple[float, float]:
         if not self.has_team(home) or not self.has_team(away):
             missing = [t for t in (home, away) if not self.has_team(t)]
@@ -300,21 +398,30 @@ class DixonColesModel:
         rest = 0.0
         if p.rest_coeff is not None and rest_diff is not None:
             rest = p.rest_coeff * rest_diff
+        # Recent-form differential: the better in-form side (by points per game)
+        # gets a multiplicative lift to its own rate and the mirror to its
+        # opponent.  The size of the lift is the fitted ``form_coeff``.
+        form = 0.0
+        if p.form_coeff is not None and form_diff is not None:
+            form = p.form_coeff * form_diff
         # The competition the fixture is played in sets the expected baseline
         # (a cup pools several leagues, so the same two attacks/defences imply
         # different goal totals depending on the league offset).
         league_off = p.league_intercepts.get(league, 0.0) if league else 0.0
         base = p.intercept + league_off
-        lh = np.exp(base + p.attack[home] - p.defence[away] + home_adv + rest)
-        la = np.exp(base + p.attack[away] - p.defence[home] - rest)
+        edge = rest + form
+        lh = np.exp(base + p.attack[home] - p.defence[away] + home_adv + edge)
+        la = np.exp(base + p.attack[away] - p.defence[home] - edge)
         return float(lh), float(la)
 
     def score_matrix(
         self, home: str, away: str, *, kmax: int = 10, neutral_venue: bool = False,
-        rest_diff: float | None = None, league: str | None = None,
+        rest_diff: float | None = None, form_diff: float | None = None,
+        league: str | None = None,
     ) -> np.ndarray:
         lh, la = self.expected_goals(
-            home, away, neutral_venue=neutral_venue, rest_diff=rest_diff, league=league
+            home, away, neutral_venue=neutral_venue, rest_diff=rest_diff,
+            form_diff=form_diff, league=league,
         )
         return score_matrix(lh, la, kmax=kmax, rho=self.params.rho)
 
