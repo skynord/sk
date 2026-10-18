@@ -314,8 +314,9 @@ def test_groq_provider_defaults_apply(monkeypatch) -> None:
     assert llm.is_enabled() is True
     assert llm._endpoint() == (
         "https://api.groq.com/openai/v1",
-        "llama-3.3-70b-versatile",
+        llm.PROVIDERS["groq"][1][0],
     )
+    assert len(llm._candidates()[1]) > 1
 
 
 def test_provider_defaults_cover_free_tiers(monkeypatch) -> None:
@@ -326,8 +327,59 @@ def test_provider_defaults_cover_free_tiers(monkeypatch) -> None:
             monkeypatch, llm_api_key="k", llm_provider=provider,
             llm_base_url=None, llm_model=None,
         )
-        base, model = llm._endpoint()
-        assert base and model, provider
+        base, models = llm._candidates()
+        assert base and models, provider
+
+
+def test_phrase_falls_back_to_next_model_candidate(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(
+        monkeypatch, llm_api_key="k", llm_provider="groq",
+        llm_base_url=None, llm_model=None,
+    )
+    llm._WORKING_MODEL.clear()
+    tried: list[str] = []
+
+    def fake_call(base: str, model: str, question: str, facts: str) -> str | None:
+        tried.append(model)
+        return None if len(tried) == 1 else "rephrased"
+
+    monkeypatch.setattr(llm, "_call", fake_call)
+    assert llm.phrase("q", "f") == "rephrased"
+    assert len(tried) == 2
+
+
+def test_phrase_retries_the_remembered_model_first(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(
+        monkeypatch, llm_api_key="k", llm_provider="groq",
+        llm_base_url=None, llm_model=None,
+    )
+    llm._WORKING_MODEL.clear()
+    models = llm._candidates()[1]
+    llm._WORKING_MODEL["groq"] = models[-1]
+    tried: list[str] = []
+
+    def fake_call(base: str, model: str, question: str, facts: str) -> str | None:
+        tried.append(model)
+        return "ok"
+
+    monkeypatch.setattr(llm, "_call", fake_call)
+    assert llm.phrase("q", "f") == "ok"
+    assert tried == [models[-1]]
+
+
+def test_phrase_returns_none_when_every_candidate_fails(monkeypatch) -> None:
+    from app.chat import llm
+
+    _use_llm_settings(
+        monkeypatch, llm_api_key="k", llm_provider="groq",
+        llm_base_url=None, llm_model=None,
+    )
+    monkeypatch.setattr(llm, "_call", lambda *a: None)
+    assert llm.phrase("q", "f") is None
 
 
 def test_explicit_base_url_and_model_override_provider(monkeypatch) -> None:
