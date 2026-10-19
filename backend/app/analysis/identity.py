@@ -86,6 +86,7 @@ _CLUB_ALIASES: dict[str, str] = {
     # England
     "afc bournemouth": "bournemouth",
     "brighton hove albion fc": "brighton",
+    "coventry city fc": "coventry",
     "ipswich town fc": "ipswich",
     "leeds united fc": "leeds",
     "leicester city fc": "leicester",

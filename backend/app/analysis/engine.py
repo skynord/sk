@@ -447,16 +447,28 @@ def _value_analysis(
     for row in odds_rows:
         by_market.setdefault(row["market"], []).append(row)
 
+    # Fair probabilities must come from one bookmaker's complete market: the
+    # margin only cancels inside a book's own 1x2 (or O/U, BTTS) set.  Combining
+    # every book's prices sums several overrounds and collapses each fair
+    # probability towards zero, which would fake a huge edge for every selection.
+    fair_by: dict[tuple[str, str, str], float] = {}
+    for market, rows in by_market.items():
+        full = {r["selection"] for r in rows}
+        by_book: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            by_book.setdefault(row["bookmaker"], []).append(row)
+        for book, brows in by_book.items():
+            if len(brows) < 2 or {r["selection"] for r in brows} != full:
+                continue
+            try:
+                fairs = fair_probabilities([r["decimal_odds"] for r in brows])
+            except ValueError:
+                continue
+            for row, value in zip(brows, fairs, strict=True):
+                fair_by[(market, book, row["selection"])] = value
+
     assessments: list[dict[str, Any]] = []
     for market, rows in by_market.items():
-        prices = [r["decimal_odds"] for r in rows]
-        fair: dict[str, float] = {}
-        if len(rows) >= 2:
-            try:
-                fairs = fair_probabilities(prices)
-                fair = {r["selection"]: f for r, f in zip(rows, fairs, strict=True)}
-            except ValueError:
-                fair = {}
         for row in rows:
             model_p = _odds_model_probability(markets, market, row["selection"])
             if model_p is None:
@@ -465,7 +477,9 @@ def _value_analysis(
                 selection=f"{market}:{row['selection']}",
                 model_probability=model_p,
                 decimal_odds=row["decimal_odds"],
-                market_fair_probability=fair.get(row["selection"]),
+                market_fair_probability=fair_by.get(
+                    (market, row["bookmaker"], row["selection"])
+                ),
             )
             assessments.append(
                 {

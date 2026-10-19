@@ -65,6 +65,37 @@ class TestValue:
         s = ev_sensitivity(0.5, 2.0, delta=0.02)
         assert s["p_minus"] < s["p"] < s["p_plus"]
 
+    def test_engine_fair_probability_is_per_bookmaker(self):
+        from app.analysis.engine import _value_analysis
+
+        class Odd:
+            def __init__(self, bookmaker, selection, decimal_odds):
+                self.bookmaker = bookmaker
+                self.market = "1x2"
+                self.selection = selection
+                self.decimal_odds = decimal_odds
+
+        markets = {"one_x_two": {"home": 0.50, "draw": 0.25, "away": 0.25}}
+        odds = [
+            Odd("Bet365", "home", 2.10),
+            Odd("Bet365", "draw", 3.40),
+            Odd("Bet365", "away", 3.60),
+            Odd("Pinnacle", "home", 2.12),
+            Odd("Pinnacle", "draw", 3.45),
+            Odd("Pinnacle", "away", 3.65),
+        ]
+        assessments = {
+            (a["bookmaker"], a["selection"]): a
+            for a in _value_analysis(markets, odds, None)["assessments"]
+        }
+        bet365 = [1 / 2.10, 1 / 3.40, 1 / 3.60]
+        expected = bet365[0] / sum(bet365)
+        fair = assessments[("Bet365", "home")]["market_fair_probability"]
+        assert fair == pytest.approx(expected)
+        # Each book's own margin cancels; stacking both would push this below 0.1.
+        assert fair > 0.4
+        assert fair != assessments[("Pinnacle", "home")]["market_fair_probability"]
+
 
 class TestCalibration:
     def test_multiclass_brier_perfect_is_zero(self):
