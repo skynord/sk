@@ -147,6 +147,34 @@ def test_bet_today_says_when_no_value() -> None:
     assert "no positive estimated value" in reply["reply"]
 
 
+def test_bet_today_without_odds_is_honest() -> None:
+    """No stored odds at all must not be reported as prices left unbeaten."""
+    plain = _prediction(probability=0.55)
+    reply = engine.answer("what can I bet today?", "bet_today", _result(plain))
+    text = reply["reply"].lower()
+    assert "no bookmaker prices" in text
+    assert "at or above the model" not in text
+    assert reply["cards"]
+
+
+def test_best_value_without_odds_is_honest() -> None:
+    plain = _prediction(probability=0.55)
+    reply = engine.answer("where's the best value?", "best_value", _result(plain))
+    text = reply["reply"].lower()
+    assert "no bookmaker prices" in text
+    assert "below the price" not in text
+    assert reply["cards"] == []
+
+
+def test_best_value_with_odds_but_no_edge_reports_odds_count() -> None:
+    priced = _prediction(
+        probability=0.4, odds=1.5, ev=-0.4, positive=False,
+    )
+    reply = engine.answer("where's the best value?", "best_value", _result(priced))
+    assert "I have odds for" in reply["reply"]
+    assert "no bookmaker prices" not in reply["reply"]
+
+
 def test_match_lookup_by_team_names() -> None:
     fixture = _prediction(
         home="Arsenal",

@@ -191,6 +191,29 @@ def _value(prediction: dict[str, Any]) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _priced(predictions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The subset a bookmaker price was actually attached to.
+
+    Fixtures with no stored odds carry no ``best_value`` at all, which is a
+    different situation from being priced and not beaten: an answer has to say
+    which one it is rather than talk about prices that are not there.
+    """
+    return [p for p in predictions if (_value(p) or {}).get("decimal_odds")]
+
+
+def _no_odds_reply(predictions: list[dict[str, Any]]) -> str | None:
+    """Honest text when the comparison the user wants cannot be made at all."""
+    if _priced(predictions):
+        return None
+    return (
+        "I have no bookmaker prices stored for any of these fixtures, so I "
+        "cannot compare the model against the market yet — this is not a case "
+        "of the model failing to beat prices. The probabilities below are the "
+        "model's own estimates; I will assess expected value once prices are "
+        "imported for these fixtures."
+    )
+
+
 def _card(prediction: dict[str, Any]) -> dict[str, Any]:
     pick = prediction.get("pick") or {}
     selection = pick.get("selection", "")
@@ -461,18 +484,24 @@ def _answer_bet_today(
     ]
 
     positive = _positive_value(window)
+    no_odds = _no_odds_reply(window)
     if positive:
         parts.append("")
         parts.append("Where the model's probability sits above the stored price:")
         parts.extend(_value_lines(positive[:4], now))
         if len(positive) > 4:
             parts.append(f"…and {len(positive) - 4} more with a smaller edge.")
+    elif no_odds:
+        parts.append("")
+        parts.append(no_odds)
     else:
+        priced = _priced(window)
         parts.append("")
         parts.append(
-            "None of the stored prices are beaten by the model right now — every "
-            "quoted price is at or above the model's probability, so there is no "
-            "positive estimated value here."
+            f"The model does not beat any of the {len(priced)} stored price"
+            f"{'s' if len(priced) != 1 else ''} in this window — the quoted "
+            f"prices sit at or above the model's probability, so there is no "
+            f"positive estimated value right now."
         )
 
     likely = sorted(
@@ -506,11 +535,16 @@ def _answer_best_value(
 ) -> tuple[str, list[dict[str, Any]]]:
     positive = _positive_value(predictions)
     if not positive:
+        no_odds = _no_odds_reply(predictions)
+        if no_odds:
+            return no_odds, []
+        priced = _priced(predictions)
         reply = (
-            f"I found no positive estimated value {scope}. That means the model's "
-            f"probability is below the price on every fixture with stored odds — "
-            f"the value is with the market, not against it. An edge can appear as "
-            f"odds move, so it is worth asking again later."
+            f"I found no positive estimated value {scope}. The model's "
+            f"probability is below the price on all {len(priced)} fixture"
+            f"{'s' if len(priced) != 1 else ''} I have odds for — the value is "
+            f"with the market, not against it. An edge can appear as odds move, "
+            f"so it is worth asking again later."
         )
         return reply, []
 
