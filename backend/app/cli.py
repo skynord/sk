@@ -23,6 +23,7 @@ import sys
 from datetime import UTC
 
 from app.db.base import SessionLocal, init_db
+from app.ingest.daily import BIG_FIVE
 from app.ingest.service import ingest_provider, seed_data_sources
 
 
@@ -68,23 +69,14 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return 0 if result["status"] in ("success", "unavailable") else 1
 
 
-#: The five big European leagues, as API-Football name|country specs.  The Free
-#: plan only reaches a ±1-day date window, so this is what a daily refresh pulls.
-BIG_FIVE = [
-    "Premier League|England",
-    "La Liga|Spain",
-    "Serie A|Italy",
-    "Bundesliga|Germany",
-    "Ligue 1|France",
-]
-
-
 def cmd_refresh_upcoming(args: argparse.Namespace) -> int:
     """Import the next day's big-five fixtures (and odds) then run the bot.
 
     One command for a daily refresh.  Uses a single fixtures request per day plus
     one stats and one odds request per kept fixture, so it fits an API-Football
     Free key's daily allowance when only a handful of fixtures are in range.
+    Duplicate clubs and fixtures arriving under another provider's spelling are
+    merged first, so every imported fixture keeps its odds.
     """
     from datetime import datetime
 
@@ -112,6 +104,27 @@ def cmd_refresh_upcoming(args: argparse.Namespace) -> int:
             print(f"  warning: {w}")
     if result["status"] not in ("success", "unavailable"):
         return 1
+
+    # Providers spell clubs differently ("Cagliari" vs "Cagliari Calcio"), so a
+    # day's fixtures can land as brand new rows beside the fixture already
+    # stored.  Fold them together before predicting, or the bot would surface
+    # fixtures that carry no odds and report no value on a priced fixture.
+    from app.ingest import maintenance
+
+    with SessionLocal() as db:
+        try:
+            dedupe = maintenance.run_dedupe(db, apply=True)
+            db.commit()
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            dedupe = None
+            print(f"dedupe skipped after refresh: {exc}")
+    if dedupe is not None and dedupe.matches_removed:
+        print(
+            f"dedupe: merged {dedupe.matches_removed} duplicate fixtures and "
+            f"{dedupe.teams_removed} duplicate clubs"
+        )
+
     if args.no_predict:
         return 0
     return cmd_predict(argparse.Namespace(

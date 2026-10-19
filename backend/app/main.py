@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import routers
 from app.config import get_settings
 from app.db.base import SessionLocal, init_db
+from app.ingest import daily
 from app.ingest.service import seed_data_sources
 from app.logging_config import configure_logging, get_logger
 
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     logger.info("application started", extra={"providers": get_settings().provider_list})
+    daily.start()
     yield
 
 

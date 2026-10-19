@@ -16,14 +16,17 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import func, select
+
 from app.analysis import bot_jobs, identity
+from app.db.base import SessionLocal
+from app.db.models import IngestRun, Match
 
 # The chat reuses the Predictions page's default batch so the two share one
 # model fit rather than each fitting their own.
 CHAT_DAYS = 14
 CHAT_LIMIT = 50
 CHAT_INCLUDE_LIVE = True
-CHAT_KEY = f"None|{CHAT_DAYS}|{CHAT_LIMIT}|{int(CHAT_INCLUDE_LIVE)}"
 
 DEFAULT_HOURS = 24
 LIVE_GRACE_HOURS = 3
@@ -329,6 +332,14 @@ def _find_teams(message: str, names: list[str]) -> list[str]:
         elif tokens and tokens <= message_tokens:
             first = min((normalized.find(t) for t in tokens if t in normalized), default=-1)
             hits.append((first if first >= 0 else 10**6, name_norm, name, tokens))
+        else:
+            # The stored spelling differs from what a reader would type:
+            # "Ath Bilbao" vs "Athletic Bilbao", "Parma Calcio 1913" vs "Parma".
+            # Fall back to the same club-identity key the model already uses.
+            key = set(identity.team_merge_key(name))
+            if key and key <= message_tokens:
+                first = min((normalized.find(t) for t in key if t in normalized), default=-1)
+                hits.append((first if first >= 0 else 10**6, name_norm, name, tokens))
 
     # A shorter hit that is contained in a longer one ("United" inside
     # "Manchester United") is dropped in favour of the longer name.
@@ -884,9 +895,25 @@ def answer(
 # --------------------------------------------------------------------------
 
 
-def _ensure_batch() -> dict[str, Any]:
+def _batch_key() -> str:
+    """The batch's identity, which includes what has been imported since it ran.
+
+    Without this the key never changed, so a finished batch would keep answering
+    from the last import until the process restarted -- the daily refresh would
+    land fresh odds and the chat would still report the ones it had fitted.
+    """
+    with SessionLocal() as db:
+        last_import = db.execute(select(func.max(IngestRun.id))).scalar()
+        fixtures = db.execute(select(func.count(Match.id))).scalar()
+    return (
+        f"None|{CHAT_DAYS}|{CHAT_LIMIT}|{int(CHAT_INCLUDE_LIVE)}"
+        f"|{int(last_import or 0)}-{int(fixtures or 0)}"
+    )
+
+
+def _ensure_batch(key: str | None = None) -> dict[str, Any]:
     return bot_jobs.ensure(
-        CHAT_KEY,
+        key or _batch_key(),
         {
             "league_id": None,
             "days_ahead": CHAT_DAYS,
@@ -903,8 +930,9 @@ def batch_state() -> tuple[str, dict[str, Any] | None, str | None]:
     ``status`` is ``"ready"`` only when the finished batch is this chat's own
     default batch; a run for another set of filters reports ``"running"``.
     """
-    snapshot = _ensure_batch()
-    if snapshot["status"] == "ready" and snapshot["key"] == CHAT_KEY:
+    key = _batch_key()
+    snapshot = _ensure_batch(key)
+    if snapshot["status"] == "ready" and snapshot["key"] == key:
         return "ready", snapshot["result"] or {}, None
     if snapshot["status"] == "error":
         return "error", None, snapshot["error"]

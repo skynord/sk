@@ -436,3 +436,15 @@ def test_provider_name_is_normalised_and_blank_falls_back() -> None:
     assert Settings(llm_provider="  GROQ ").llm_provider == "groq"
     assert Settings(llm_provider="").llm_provider == "openai"
     assert Settings(llm_provider=None).llm_provider == "openai"
+
+
+def test_find_teams_matches_provider_spelling_of_the_same_club() -> None:
+    names = ["Ath Bilbao", "Parma Calcio 1913", "Coventry City FC", "Arsenal"]
+
+    found = engine._find_teams("best value in levante vs athletic bilbao?", names)
+    assert found == ["Ath Bilbao"]
+
+    found = engine._find_teams("what about parma vs torino today?", names)
+    assert found == ["Parma Calcio 1913"]
+
+    assert engine._find_teams("value for aston villa?", names) == []
