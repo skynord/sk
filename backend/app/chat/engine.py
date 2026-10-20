@@ -320,7 +320,9 @@ def _find_teams(message: str, names: list[str]) -> list[str]:
     normalized = _norm(message)
     if not normalized:
         return []
-    message_tokens = set(normalized.split())
+    # Readers write a club the way they say it ("psg"); expand the short forms
+    # so the containment test below still reaches the stored spelling.
+    message_tokens = identity.expand_abbreviations(normalized)
     hits: list[tuple[int, str, str, set[str]]] = []
     for name in names:
         name_norm = _norm(name)

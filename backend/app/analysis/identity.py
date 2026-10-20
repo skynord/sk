@@ -103,6 +103,20 @@ _CLUB_ALIASES: dict[str, str] = {
 }
 
 
+#: Competition "country" spellings that providers disagree on.  Leagues are
+#: merged across providers by ``slugify(f"{country}-{name}")``, so a provider
+#: filing the UEFA club competitions under another country would open a second
+#: local league (with no history) instead of adding to the one we already have.
+#: API-Football says "World" for these; the stored rows say "Europe".
+LEAGUE_COUNTRY_ALIASES: dict[str, str] = {
+    "uefa champions league": "Europe",
+    "uefa europa league": "Europe",
+    "uefa europa conference league": "Europe",
+    "uefa conference league": "Europe",
+    "uefa super cup": "Europe",
+}
+
+
 def normalize_name(value: str | None) -> str:
     """Fold a provider name to a comparable key.
 
@@ -131,6 +145,45 @@ def canonical_team_key(name: str | None) -> str:
     """Normalised key with the observed provider aliases applied."""
     key = normalize_name(name)
     return TEAM_ALIASES.get(key, key)
+
+
+#: Short forms readers type for a club, mapped to the words the stored name
+#: uses.  A question says "psg"; the row says "Paris Saint Germain".  Only
+#: forms we have really seen asked for are listed, as with the team aliases.
+CLUB_ABBREVIATIONS: dict[str, str] = {
+    "psg": "paris saint germain",
+    "barca": "barcelona",
+    "man city": "manchester city",
+    "man utd": "manchester united",
+    "juve": "juventus",
+}
+
+
+def expand_abbreviations(text: str) -> set[str]:
+    """The words of ``text``, plus those that any short form in it stands for.
+
+    Keeps a plain containment test working when the reader and the stored row
+    spell the same club differently.  A short form only counts as a whole word,
+    and longer ones are applied first so "man city" is not eaten by "man".
+    """
+    padded = f" {text} "
+    tokens = set(padded.split())
+    for short in sorted(CLUB_ABBREVIATIONS, key=len, reverse=True):
+        if f" {short} " in padded:
+            tokens.update(CLUB_ABBREVIATIONS[short].split())
+    return tokens
+
+
+def canonical_league_country(name: str | None, country: str | None) -> str | None:
+    """The country the stored row for a competition already uses.
+
+    Only cross-border competitions whose providers disagree need this; every
+    national league keeps whatever country its provider reported.
+    """
+    alias = LEAGUE_COUNTRY_ALIASES.get(normalize_name(name))
+    if alias and normalize_name(country) in ("", "world", "intl"):
+        return alias
+    return country
 
 
 def _tokens(name: str) -> set[str]:

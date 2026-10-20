@@ -192,6 +192,22 @@ def test_match_lookup_by_team_names() -> None:
     assert [card["match_id"] for card in reply["cards"]] == [1]
 
 
+def test_match_lookup_accepts_a_clubs_short_form() -> None:
+    """A reader types "psg"; the stored name spells it out.
+
+    Both clubs have to resolve, or a named fixture is reported as not found.
+    """
+    fixture = _prediction(
+        match_id=7,
+        home="Paris Saint Germain",
+        away="Barcelona",
+        league="UEFA Champions League",
+    )
+    reply = engine.answer("psg vs barcelona", "match", _result(fixture))
+    assert "couldn't find" not in reply["reply"].lower()
+    assert [card["match_id"] for card in reply["cards"]] == [7]
+
+
 def test_match_not_in_batch_is_reported_honestly() -> None:
     only = _prediction(home="Arsenal", away="Chelsea")
     reply = engine.answer("Barcelona vs Real Madrid", "match", _result(only))

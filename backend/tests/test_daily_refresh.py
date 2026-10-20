@@ -13,8 +13,14 @@ from app.db.models import IngestRun
 from app.ingest import daily
 
 
-def test_cli_and_the_loop_share_one_big_five_list():
-    assert cli.BIG_FIVE is daily.BIG_FIVE
+def test_cli_and_the_loop_share_one_league_list():
+    assert cli.REFRESH_LEAGUES is daily.REFRESH_LEAGUES
+
+
+def test_the_daily_refresh_covers_the_champions_league():
+    """The cup a reader asks about midweek, which no other provider of ours has."""
+    assert "UEFA Champions League|World" in daily.REFRESH_LEAGUES
+    assert len(daily.REFRESH_LEAGUES) == len(set(daily.REFRESH_LEAGUES))
 
 
 def test_already_imported_only_counts_a_successful_run_covering_that_date(db):
@@ -37,6 +43,33 @@ def test_already_imported_only_counts_a_successful_run_covering_that_date(db):
     assert daily.already_imported(db, "2099-01-01") is True
     assert daily.already_imported(db, "2099-01-02") is False
     assert daily.already_imported(db, "2098-12-31") is False
+
+
+def test_a_widened_league_set_pulls_the_date_again(db):
+    """A date imported before a competition joined the list is not "already done"."""
+    db.add(
+        IngestRun(
+            provider="api_football",
+            scope="date=2099-03-03, leagues=Premier League|England",
+            status="success",
+        )
+    )
+    db.add(
+        IngestRun(
+            provider="api_football",
+            scope="date=2099-03-04, leagues=Premier League|England,UEFA Champions League|World",
+            status="success",
+        )
+    )
+    db.commit()
+
+    only_big_five = ["Premier League|England"]
+    with_cup = [*only_big_five, "UEFA Champions League|World"]
+    # 3 March was covered for the league, but never for the cup: import it again.
+    assert daily.already_imported(db, "2099-03-03", only_big_five) is True
+    assert daily.already_imported(db, "2099-03-03", with_cup) is False
+    # 4 March was imported with the cup in scope.
+    assert daily.already_imported(db, "2099-03-04", with_cup) is True
 
 
 def test_refresh_without_a_key_attempts_nothing(db):

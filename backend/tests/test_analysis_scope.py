@@ -34,6 +34,39 @@ def test_observed_provider_alias_is_applied():
     assert identity.canonical_team_key("Gimnasia de La Plata") == "gimnasia de la plata"
 
 
+def test_cup_country_spelling_is_canonicalised_for_the_stored_row():
+    # Providers disagree on where a cross-border cup sits: API-Football files it
+    # under "World", the league we already hold (with its history) says "Europe".
+    assert identity.canonical_league_country("UEFA Champions League", "World") == "Europe"
+    assert identity.canonical_league_country("UEFA Champions League", "Europe") == "Europe"
+    # A national league keeps whatever country its provider reported.
+    assert identity.canonical_league_country("Premier League", "England") == "England"
+    # A competition we have not seen the disagreement in is left alone.
+    assert identity.canonical_league_country("Copa Libertadores", "World") == "World"
+    assert identity.canonical_league_country(None, None) is None
+
+
+def test_short_forms_expand_to_the_words_a_stored_name_uses():
+    assert identity.expand_abbreviations("psg vs barcelona") == {
+        "psg",
+        "vs",
+        "barcelona",
+        "paris",
+        "saint",
+        "germain",
+    }
+    # A longer short form is not lost to a shorter one inside it.
+    assert "manchester" in identity.expand_abbreviations("man city at home")
+    # Words that only look like a short form are left alone.
+    assert identity.expand_abbreviations("a spur of the moment") == {
+        "a",
+        "spur",
+        "of",
+        "the",
+        "moment",
+    }
+
+
 def test_normalize_name_drops_trailing_association_code():
     # openfootball labels cup clubs with the association in brackets.
     assert identity.normalize_name("Manchester City FC (ENG)") == "manchester city fc"

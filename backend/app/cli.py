@@ -23,7 +23,7 @@ import sys
 from datetime import UTC
 
 from app.db.base import SessionLocal, init_db
-from app.ingest.daily import BIG_FIVE
+from app.ingest.daily import REFRESH_LEAGUES
 from app.ingest.service import ingest_provider, seed_data_sources
 
 
@@ -70,7 +70,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
 
 def cmd_refresh_upcoming(args: argparse.Namespace) -> int:
-    """Import the next day's big-five fixtures (and odds) then run the bot.
+    """Import the next day's fixtures (and odds) then run the bot.
 
     One command for a daily refresh.  Uses a single fixtures request per day plus
     one stats and one odds request per kept fixture, so it fits an API-Football
@@ -83,7 +83,9 @@ def cmd_refresh_upcoming(args: argparse.Namespace) -> int:
     init_db()
     date = args.date or datetime.now(tz=UTC).strftime("%Y-%m-%d")
     leagues = [
-        s.strip() for s in (args.leagues.split(",") if args.leagues else BIG_FIVE) if s.strip()
+        s.strip()
+        for s in (args.leagues.split(",") if args.leagues else REFRESH_LEAGUES)
+        if s.strip()
     ]
     with SessionLocal() as db:
         result = ingest_provider(
@@ -567,10 +569,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_refresh = sub.add_parser(
         "refresh-upcoming",
-        help="import today's big-five fixtures + odds, then run the prediction bot",
+        help="import today's fixtures + odds (big five and Champions League), then run the bot",
     )
     p_refresh.add_argument("--date", help="UTC date YYYY-MM-DD (default: today)")
-    p_refresh.add_argument("--leagues", help="override the default big-five league specs")
+    p_refresh.add_argument("--leagues", help="override the default league specs")
     p_refresh.add_argument("--no-details", action="store_true", help="fixtures only (skip odds)")
     p_refresh.add_argument("--no-predict", action="store_true", help="import only, do not run the bot")
     p_refresh.add_argument("--days", type=int, default=3, help="bot window after import")

@@ -10,6 +10,7 @@ from sqlalchemy import delete, func, select
 
 from app.config import get_settings
 from app.db.models import League, Match, MatchOdd, ProviderRecord, Team
+from app.ingest import service
 from app.ingest.service import (
     _dataset_from_provider,
     ingest_fixture,
@@ -54,6 +55,42 @@ def test_seed_data_sources_is_idempotent(db):
 
     count = db.execute(select(func.count()).select_from(DataSource)).scalar_one()
     assert count == len(available_provider_names())
+
+
+def test_cup_fixture_joins_the_league_that_already_holds_its_history(db):
+    """A cup's fixtures must land on the stored league, not open a second one.
+
+    Merging is by ``slugify(f"{country}-{name}")``: API-Football files the UEFA
+    cups under "World" while the row stored from openfootball says "Europe", so
+    an uncanonicalised country would have split the competition in two and left
+    the imported fixtures on the empty half.
+    """
+    stored = League(
+        slug="europe-uefa-champions-league", name="UEFA Champions League", country="Europe"
+    )
+    db.add(stored)
+    db.commit()
+
+    match = NormalizedMatch(
+        provider_id="1635661",
+        kickoff_utc=datetime(2026, 10, 20, 19, 0, tzinfo=UTC),
+        home_name="Fenerbahce",
+        away_name="Slavia Praha",
+        league_name="UEFA Champions League",
+        country="World",
+        season_label="2026",
+    )
+    league = service._upsert_league(db, "api_football", match, is_estimate=False)
+    db.commit()
+
+    assert league.id == stored.id
+    assert league.slug == "europe-uefa-champions-league"
+    assert league.country == "Europe"
+    assert (league.provider_refs or {}).get("api_football") == "UEFA Champions League"
+    split_off = db.execute(
+        select(func.count(League.id)).where(League.slug == "world-uefa-champions-league")
+    ).scalar_one()
+    assert split_off == 0
 
 
 class TestSampleIngest:

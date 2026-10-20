@@ -30,14 +30,20 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-#: The five big European leagues, as API-Football name|country specs.  The Free
-#: plan only reaches a +/-1-day date window, so this is what a daily refresh pulls.
-BIG_FIVE = [
+#: The competitions a daily refresh pulls, as API-Football name|country specs.
+#: The Free plan only reaches a +/-1-day date window, so these are the ones that
+#: matter on a server nobody logs into.  The Champions League is here because its
+#: fixtures are the ones a reader asks about midweek and no other provider of ours
+#: carries them; the "World" country is API-Football's own spelling and is folded
+#: to the stored "Europe" one on ingest, so it lands on the league row that
+#: already holds its history.
+REFRESH_LEAGUES = [
     "Premier League|England",
     "La Liga|Spain",
     "Serie A|Italy",
     "Bundesliga|Germany",
     "Ligue 1|France",
+    "UEFA Champions League|World",
 ]
 
 _lock = threading.Lock()
@@ -48,18 +54,25 @@ def _today() -> str:
     return datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
 
-def already_imported(db: Session, date: str) -> bool:
-    """True when a successful import of ``date`` is already stored."""
-    row = db.execute(
-        select(IngestRun.id)
-        .where(
+def already_imported(db: Session, date: str, leagues: list[str] | None = None) -> bool:
+    """True when a successful import of ``date`` is already stored.
+
+    With ``leagues``, only a run whose scope covers every one of them counts, so
+    widening the set (a competition added since, say) pulls that date again
+    instead of being skipped because *something* was imported for it.
+    """
+    scopes = db.execute(
+        select(IngestRun.scope).where(
             IngestRun.provider == "api_football",
             IngestRun.status == "success",
             IngestRun.scope.like(f"%date={date}%"),
         )
-        .limit(1)
-    ).first()
-    return row is not None
+    ).scalars().all()
+    if not scopes:
+        return False
+    if leagues is None:
+        return True
+    return any(all(spec in scope for spec in leagues) for scope in scopes)
 
 
 def refresh_today() -> dict[str, Any] | None:
@@ -73,16 +86,17 @@ def refresh_today() -> dict[str, Any] | None:
         return None
 
     date = _today()
+    leagues = list(REFRESH_LEAGUES)
     with SessionLocal() as db:
         with _lock:
-            if date in _attempted or already_imported(db, date):
+            if date in _attempted or already_imported(db, date, leagues):
                 return None
             _attempted.add(date)
         result = ingest_provider(
             db,
             "api_football",
             date=date,
-            leagues=list(BIG_FIVE),
+            leagues=leagues,
             include_details=True,
         )
 

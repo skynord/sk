@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.analysis import identity
 from app.config import get_settings
 from app.db.models import (
     DataSource,
@@ -118,14 +119,19 @@ def _provenance(
 
 
 def _upsert_league(db: Session, provider: str, match: NormalizedMatch, is_estimate: bool) -> League:
-    slug = slugify(f"{match.country or 'intl'}-{match.league_name}")
+    # Providers file the cross-border cups under different "countries"
+    # (API-Football says "World", the stored rows say "Europe"), and the slug is
+    # what merges them: canonicalise first so a cup's fixtures join the league
+    # that already holds its history instead of opening a second, empty one.
+    country = identity.canonical_league_country(match.league_name, match.country)
+    slug = slugify(f"{country or 'intl'}-{match.league_name}")
     league = db.execute(select(League).where(League.slug == slug)).scalars().first()
     if league is None:
-        league = League(slug=slug, name=match.league_name, country=match.country)
+        league = League(slug=slug, name=match.league_name, country=country)
         db.add(league)
         db.flush()
     league.name = match.league_name
-    league.country = league.country or match.country
+    league.country = league.country or country
     refs = dict(league.provider_refs or {})
     refs[provider] = match.league_name
     league.provider_refs = refs
