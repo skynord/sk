@@ -100,6 +100,11 @@ _CLUB_ALIASES: dict[str, str] = {
     "olympique lyonnais": "lyon",
     "racing club de lens": "lens",
     "rc strasbourg alsace": "strasbourg",
+    # Portugal / Netherlands / Austria: the cup row is short, the league row long.
+    "sporting cp": "sporting clube de portugal",
+    "sporting lisbon": "sporting clube de portugal",
+    "feyenoord rotterdam": "feyenoord",
+    "lask linz": "lask",
 }
 
 

@@ -214,6 +214,11 @@ The six smaller domestic leagues are there for the Champions League: without
 them a Turkish, Greek, Portuguese, Belgian, Dutch, Austrian or Scottish club is
 only a league-average prior, and "Galatasaray are strong" would be a guess.
 
+A cup club's pool follows the matches it actually played, not the competition
+that first filed it (a club imported through the Champions League keeps the cup
+as its "home" league forever), and the short cup spelling is folded onto the
+league spelling, so `Sporting CP` trains on its Primeira Liga results.
+
 then:
 
 ```powershell

@@ -240,3 +240,63 @@ def test_peer_competitions_can_be_disabled(db):
         build_analysis(
             db, fixture_id, AnalysisOptions(persist=False, allow_peer_competitions=False)
         )
+
+
+def test_a_cup_club_brings_the_league_it_actually_played_in(db):
+    """Team.league_id only remembers the cup; the pool must follow the results.
+
+    A club filed by a cross-border cup first keeps that cup as its ``league_id``
+    forever, so the domestic competition has to be found from the matches the
+    club played, or a Turkish side would still be a league-average prior.
+    """
+    from sqlalchemy import select
+
+    from app.analysis.engine import _linked_league_ids
+    from app.db.models import League
+    from app.ingest.service import import_manual_match as _import
+
+    country = "Turkey-cup-link"
+    _seed_history(db, "Testland Super Lig", country)
+
+    kickoff = (datetime.now(tz=UTC) + timedelta(days=2)).replace(microsecond=0)
+    cup_id = _import(
+        db,
+        {
+            "league": "UEFA Test Cup",
+            "country": "Europe",
+            "kickoff_utc": kickoff.isoformat(),
+            "home": HISTORY_TEAMS[0],
+            "away": "Somebody Else",
+            "status": "scheduled",
+        },
+    )
+    cup_league_id = db.execute(
+        select(League.id).where(League.name == "UEFA Test Cup")
+    ).scalars().first()
+    domestic_id = db.execute(
+        select(League.id).where(League.name == "Testland Super Lig")
+    ).scalars().first()
+    assert cup_id and cup_league_id and domestic_id
+
+    linked = _linked_league_ids(db, cup_league_id, [HISTORY_TEAMS[0]])
+    assert domestic_id in linked
+
+    report = build_analysis(db, cup_id, AnalysisOptions(persist=False))
+    assert domestic_id in report["scope"]["peer_league_ids"]
+    assert HISTORY_TEAMS[0] not in report["model"]["missing_teams"]
+
+def test_cup_short_names_fold_to_the_league_spelling():
+    # Observed after ingesting the Primeira Liga, Eredivisie and the Austrian
+    # Bundesliga: the cup files a club under its short name, the league under the
+    # long one, so the pool must see them as one club.
+    assert identity.team_merge_key("Sporting CP") == identity.team_merge_key(
+        "Sporting Clube de Portugal (POR)"
+    )
+    assert identity.team_merge_key("Feyenoord") == identity.team_merge_key(
+        "Feyenoord Rotterdam (NED)"
+    )
+    assert identity.team_merge_key("Lask Linz") == identity.team_merge_key("LASK")
+    # Distinct clubs in the same country stay apart.
+    assert identity.team_merge_key("Sporting CP") != identity.team_merge_key(
+        "Sporting Clube de Braga"
+    )

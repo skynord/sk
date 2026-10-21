@@ -185,18 +185,43 @@ def _linked_league_ids(db: Session, league_id: int, names: list[str]) -> list[in
     Used to pool a cross-border cup's clubs' domestic leagues: a cup row
     ("Manchester City FC (ENG)") is matched to the domestic row ("Manchester
     City") by club identity, so the cup fixture trains on both leagues plus the
-    cup.  Clubs from a league we have not ingested simply contribute nothing.
+    cup.  A club's competitions come from the matches it actually played in --
+    ``Team.league_id`` only records the first competition that ever filed the
+    club, which for a cup side is the cup itself -- so a Turkish club imported
+    through the Champions League still brings its Super Lig results.  Clubs from
+    a league we have not ingested simply contribute nothing.
     """
     keys = {identity.team_merge_key(n) for n in names}
     keys.discard(())
     if not keys:
         return []
-    found: set[int] = set()
+    team_ids: list[int] = []
+    declared: set[int] = set()
     for team in db.execute(select(Team)).scalars():
-        if team.league_id is None or team.league_id == league_id:
+        if identity.team_merge_key(team.name) not in keys:
             continue
-        if identity.team_merge_key(team.name) in keys:
-            found.add(team.league_id)
+        team_ids.append(team.id)
+        if team.league_id is not None and team.league_id != league_id:
+            declared.add(team.league_id)
+
+    found = set(declared)
+    if team_ids:
+        found.update(
+            league
+            for league in db.execute(
+                select(Match.league_id)
+                .where(
+                    Match.status == FINISHED,
+                    Match.league_id != league_id,
+                    or_(
+                        Match.home_team_id.in_(team_ids),
+                        Match.away_team_id.in_(team_ids),
+                    ),
+                )
+                .distinct()
+            ).scalars()
+            if league is not None
+        )
     return sorted(found)
 
 
