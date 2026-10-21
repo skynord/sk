@@ -55,3 +55,9 @@ export function confidenceClass(level: string): string {
 export function capitalize(value: string): string {
   return value.length === 0 ? value : value.charAt(0).toUpperCase() + value.slice(1);
 }
+
+export function confidenceTone(level: string): "low" | "moderate" | "high" {
+  if (level === "very high" || level === "high") return "high";
+  if (level === "very low" || level === "low") return "low";
+  return "moderate";
+}

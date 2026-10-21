@@ -5,7 +5,7 @@ import type { League, UpcomingPrediction, UpcomingPredictions } from "../api/typ
 import { Card, ErrorBox, InfoBox, Loading, StatCard, WarnBox } from "../components/ui";
 import { TeamCrest } from "../components/TeamCrest";
 import { LeagueCrest } from "../components/LeagueCrest";
-import { formatDateTime, pct, confidenceClass } from "../lib/format";
+import { formatDateTime, pct, confidenceTone } from "../lib/format";
 
 const SELECT_LABEL: Record<string, string> = {
   home: "Home win",
@@ -234,19 +234,17 @@ export default function Predictions() {
                           )}
                         </td>
                         <td>
-                          <span
-                            className={`badge ${confidenceClass(p.confidence)}`}
-                            title={
-                              typeof p.confidence_score === "number"
-                                ? `Confidence score ${p.confidence_score}/100`
-                                : undefined
-                            }
-                          >
-                            {p.confidence}
-                            {typeof p.confidence_score === "number"
-                              ? ` · ${p.confidence_score}`
-                              : ""}
-                          </span>
+                          {typeof p.confidence_score === "number" ? (
+                            <span
+                              className={`conf-score conf-${confidenceTone(p.confidence)}`}
+                              title={`Confidence ${p.confidence}: ${p.confidence_score}/100`}
+                            >
+                              {p.confidence_score}
+                              <span className="conf-den">/100</span>
+                            </span>
+                          ) : (
+                            <span className="faint">–</span>
+                          )}
                         </td>
                         <td className="right">
                           <Link

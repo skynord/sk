@@ -599,6 +599,26 @@ a.analyse-btn span {
 a.analyse-btn:hover span {
   transform: translateX(2px);
 }
+.conf-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.conf-score .conf-den {
+  font-weight: 500;
+  font-size: 10.5px;
+  opacity: 0.55;
+}
+.conf-score.conf-low {
+  color: #ff6b60;
+}
+.conf-score.conf-moderate {
+  color: #ffcf4d;
+}
+.conf-score.conf-high {
+  color: #5fe08a;
+}
 
 input,
 select {
