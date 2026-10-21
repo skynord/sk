@@ -206,6 +206,8 @@ export const TEAM_LOGOS: Record<string, string> = {
   "real valladolid cf": "/logos/esp-real-valladolid-cf.png",
   "reims": "/logos/fra-stade-reims.png",
   "rennes": "/logos/fra-stade-rennais-fc.png",
+  "sabah": "/logos/aze-sabah-fa.png",
+  "sabah fa": "/logos/aze-sabah-fa.png",
   "saint etienne": "/logos/fra-as-saint-etienne.png",
   "salernitana": "/logos/ita-us-salernitana-1919.png",
   "sampdoria": "/logos/ita-sampdoria.png",

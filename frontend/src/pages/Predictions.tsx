@@ -5,7 +5,7 @@ import type { League, UpcomingPrediction, UpcomingPredictions } from "../api/typ
 import { Card, ErrorBox, InfoBox, Loading, StatCard, WarnBox } from "../components/ui";
 import { TeamCrest } from "../components/TeamCrest";
 import { LeagueCrest } from "../components/LeagueCrest";
-import { formatDateTime, num, pct, signedPct, confidenceClass } from "../lib/format";
+import { formatDateTime, pct, confidenceClass } from "../lib/format";
 
 const SELECT_LABEL: Record<string, string> = {
   home: "Home win",
@@ -166,26 +166,29 @@ export default function Predictions() {
 
           {(data.predictions ?? []).length > 0 && (
             <Card title="Predicted fixtures">
-              <table>
+              <table className="fixtures-table">
                 <thead>
                   <tr>
                     <th>Kickoff</th>
                     <th>Competition</th>
-                    <th>Match</th>
+                    <th>
+                      Match <span className="faint small">(ML)</span>
+                    </th>
                     <th>Pick</th>
-                    <th className="num">1 / X / 2</th>
                     <th className="num">Score</th>
-                    <th className="num">xG</th>
-                    <th>Value</th>
+                    <th className="num" title="Both teams to score">
+                      BTTS
+                    </th>
+                    <th>Confidence</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {(data.predictions ?? []).map((p) => {
-                    const ox2 = p.probabilities.one_x_two;
+                    const btts = p.probabilities.btts?.yes;
                     return (
                       <tr key={p.match_id}>
-                        <td className="muted">{formatDateTime(p.kickoff_utc)}</td>
+                        <td className="muted nowrap">{formatDateTime(p.kickoff_utc)}</td>
                         <td className="muted">
                           {p.league ? (
                             <>
@@ -197,13 +200,40 @@ export default function Predictions() {
                           )}
                         </td>
                         <td>
-                          <TeamCrest name={p.home_team} size={18} />
-                          {p.home_team} <span className="faint">vs</span>{" "}
-                          <TeamCrest name={p.away_team} size={18} />
-                          {p.away_team}
+                          <div className="fixture-match">
+                            <span className="crest-team">
+                              <TeamCrest name={p.home_team} size={18} />
+                              {p.home_team}
+                            </span>
+                            <span className="faint">vs</span>
+                            <span className="crest-team">
+                              <TeamCrest name={p.away_team} size={18} />
+                              {p.away_team}
+                            </span>
+                          </div>
                         </td>
                         <td>
-                          {pickLabel(p)} <strong>{pct(p.pick.probability, 0)}</strong>{" "}
+                          {pickLabel(p)} <strong>{pct(p.pick.probability, 0)}</strong>
+                        </td>
+                        <td className="num">
+                          <strong>{p.predicted_score.score}</strong>{" "}
+                          <span className="faint">{pct(p.predicted_score.probability, 0)}</span>
+                        </td>
+                        <td
+                          className="num"
+                          title={
+                            typeof btts === "number"
+                              ? `Both teams to score: ${pct(btts, 0)}`
+                              : "No BTTS estimate"
+                          }
+                        >
+                          {typeof btts === "number" ? (
+                            <span className={btts >= 0.5 ? "mono" : "muted"}>{pct(btts, 0)}</span>
+                          ) : (
+                            <span className="faint">–</span>
+                          )}
+                        </td>
+                        <td>
                           <span
                             className={`badge ${confidenceClass(p.confidence)}`}
                             title={
@@ -218,31 +248,15 @@ export default function Predictions() {
                               : ""}
                           </span>
                         </td>
-                        <td className="num mono">
-                          {pct(ox2.home, 0)} / {pct(ox2.draw, 0)} / {pct(ox2.away, 0)}
-                        </td>
-                        <td className="num">
-                          <strong>{p.predicted_score.score}</strong>{" "}
-                          <span className="faint">{pct(p.predicted_score.probability, 0)}</span>
-                        </td>
-                        <td className="num">
-                          <strong>
-                            {num(p.expected_goals.home, 2)}–{num(p.expected_goals.away, 2)}
-                          </strong>
-                        </td>
-                        <td>
-                          {p.best_value ? (
-                            <span className={p.best_value.is_positive_ev ? "mono" : "muted"}>
-                              {p.best_value.market}:{p.best_value.selection} @{" "}
-                              {num(p.best_value.decimal_odds, 2)}{" "}
-                              <strong>{signedPct(p.best_value.expected_value)}</strong>
-                            </span>
-                          ) : (
-                            <span className="faint">no odds</span>
-                          )}
-                        </td>
                         <td className="right">
-                          <Link to={`/matches/${p.match_id}`}>Analyse →</Link>
+                          <Link
+                            className="btn small secondary analyse-btn"
+                            to={`/matches/${p.match_id}`}
+                            title={`Open the full analysis of ${p.home_team} vs ${p.away_team}`}
+                          >
+                            Analyse
+                            <span aria-hidden="true">→</span>
+                          </Link>
                         </td>
                       </tr>
                     );
