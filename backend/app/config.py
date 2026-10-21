@@ -70,7 +70,13 @@ class Settings(BaseSettings):
     # Competition codes and seasons to read, e.g. "en.1,es.1,de.1,it.1,fr.1".
     # Domestic leagues use the European "2024-25" season style; the UEFA cups
     # (uefa.cl/el/ecl) are filed under the same season folders.
-    openfootball_leagues: str = "en.1,es.1,de.1,it.1,fr.1,uefa.cl,uefa.el,uefa.ecl"
+    # The extra domestic leagues matter for the Champions League: without them a
+    # Turkish, Greek, Portuguese, Belgian, Dutch, Austrian or Scottish club is
+    # only a league-average prior, and the model has nothing to say about it.
+    openfootball_leagues: str = (
+        "en.1,es.1,de.1,it.1,fr.1,nl.1,pt.1,be.1,at.1,tr.1,gr.1,sco.1,"
+        "uefa.cl,uefa.el,uefa.ecl"
+    )
     openfootball_seasons: str = "2024-25,2025-26,2026-27"
 
     api_football_key: str | None = None

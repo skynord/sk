@@ -1,4 +1,4 @@
-﻿// Shared API types, mirroring the backend response shapes.
+// Shared API types, mirroring the backend response shapes.
 
 export interface TeamRef {
   id: number;
@@ -361,7 +361,17 @@ export interface UpcomingPrediction {
     over_under_2_5: Record<string, number>;
     btts: Record<string, number>;
   };
-  pick: { market: string; selection: string; probability: number };
+  pick: { market: string; selection: string; probability: number } | null;
+  insufficient_data?: string[];
+  evidence?: { home_matches: number; away_matches: number } | null;
+  form_signal?: {
+    available: boolean;
+    delta: number;
+    direction: "agrees" | "contradicts" | "neutral";
+    note: string | null;
+    home_ppg: number | null;
+    away_ppg: number | null;
+  } | null;
   predicted_score: { score: string; probability: number };
   expected_goals: { home: number; away: number; total: number };
   best_value: PredictionValue | null;

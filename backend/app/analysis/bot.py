@@ -68,10 +68,14 @@ def summarise_report(report: dict[str, Any]) -> dict[str, Any]:
     totals = markets["totals"].get("2.5", {})
     btts: dict[str, float] = markets["btts"]
     pick_selection, pick_probability = _top(one_x_two)
+    # A side with no completed match in the training window is only a
+    # league-average prior, so no team is actually favoured: publishing a "pick"
+    # there would dress a guess up as a prediction.
+    missing = list(report["model"].get("missing_teams") or [])
 
     value = report.get("value") or {}
     best_value = None
-    if value.get("available") and value.get("assessments"):
+    if not missing and value.get("available") and value.get("assessments"):
         best = max(value["assessments"], key=lambda a: a["expected_value"])
         best_value = {
             "market": best["market"],
@@ -97,13 +101,20 @@ def summarise_report(report: dict[str, Any]) -> dict[str, Any]:
             "over_under_2_5": totals,
             "btts": btts,
         },
-        "pick": {"market": "1x2", "selection": pick_selection, "probability": pick_probability},
+        "pick": None if missing else {
+            "market": "1x2",
+            "selection": pick_selection,
+            "probability": pick_probability,
+        },
         "predicted_score": report["predicted_score"],
         "expected_goals": report["expected_goals"],
         "best_value": best_value,
+        "insufficient_data": missing,
         "confidence": report["confidence"]["level"],
         "confidence_score": report["confidence"].get("score"),
+        "form_signal": report["confidence"].get("form_signal"),
         "n_training_matches": report["model"]["n_training_matches"],
+        "evidence": report["model"].get("evidence"),
     }
 
 

@@ -382,6 +382,69 @@ def _window_form(matches: list[features.MatchSummary], window: int) -> dict[str,
     return _form_to_dict(stats)
 
 
+def _form_signal(
+    *,
+    one_x_two: dict[str, float],
+    home_form: dict[str, Any],
+    away_form: dict[str, Any],
+) -> dict[str, Any]:
+    """How the favourite's recent form compares with its opponent's.
+
+    Form is not a model input -- walk-forward backtests did no better with the
+    term than without it, because results already carry it.  It is still evidence
+    about the fixture, so it moves the *grade* (never a probability): a pick whose
+    side is in clearly worse form loses points, one going with the form gains a
+    few.  Both moves are capped, and only apply when both sides have at least
+    five recent matches.
+    """
+    signal: dict[str, Any] = {
+        "available": False,
+        "delta": 0.0,
+        "direction": "neutral",
+        "note": None,
+        "home_ppg": home_form.get("points_per_match"),
+        "away_ppg": away_form.get("points_per_match"),
+    }
+    home_ppg = signal["home_ppg"]
+    away_ppg = signal["away_ppg"]
+    if (
+        home_ppg is None
+        or away_ppg is None
+        or (home_form.get("n_matches") or 0) < 5
+        or (away_form.get("n_matches") or 0) < 5
+    ):
+        return signal
+
+    selection = max(one_x_two, key=lambda k: one_x_two[k])
+    if selection == "draw":
+        gap = abs(float(home_ppg) - float(away_ppg))
+        if gap <= 0.3:
+            signal.update(available=True, delta=1.5, direction="agrees",
+                          note="Both sides arrive in similar recent form, which supports a "
+                               "close, evenly matched game.")
+        else:
+            signal.update(available=True, delta=-2.0, direction="contradicts",
+                          note="The sides arrive in contrasting recent form, which sits oddly "
+                               "with the draw being the most likely single result.")
+        return signal
+
+    if selection == "home":
+        favourite, opponent = float(home_ppg), float(away_ppg)
+    else:
+        favourite, opponent = float(away_ppg), float(home_ppg)
+    gap = favourite - opponent
+    signal["available"] = True
+    if gap >= 0.8:
+        signal.update(available=True, delta=4.0, direction="agrees",
+                      note="The side the model favours is also the one in clearly better recent "
+                           "form, which firms up the call.")
+    elif gap <= -0.8:
+        signal.update(available=True, delta=-6.0, direction="contradicts",
+                      note="The side the model favours is in clearly worse recent form, so the "
+                           "grade is cut: results can turn before the ratings catch up.")
+    return signal
+
+
 def _form_to_dict(stats: features.FormStats) -> dict[str, Any]:
     return {
         "n_matches": stats.n_matches,
@@ -628,6 +691,10 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
     # refused.  They carry no evidence, so the grade is held down and a note says
     # so (see ``derive_limitations``).
     missing_teams = frozenset(t for t in (model_home, model_away) if t not in roster)
+    evidence = {
+        "home_matches": sum(1 for r in records if model_home in (r.home, r.away)),
+        "away_matches": sum(1 for r in records if model_away in (r.home, r.away)),
+    }
     model = fit_model(
         records, opts.halflife_days, regularization,
         extra_teams=missing_teams, use_rest=opts.use_rest,
@@ -868,6 +935,11 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
         limitations.insert(0, scope["note"])
 
     top_score = market_probs.correct_scores[0]
+    form_signal = _form_signal(
+        one_x_two=market_probs.one_x_two,
+        home_form=form["home"]["last10"],
+        away_form=form["away"]["last10"],
+    )
     confidence = derive_confidence(
         n_training_matches=len(records),
         min_matches=settings.min_matches_for_model,
@@ -877,7 +949,10 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
         has_odds=value["available"],
         one_x_two=market_probs.one_x_two,
         has_secondary_stats=has_secondary_stats,
+        form_delta=form_signal["delta"],
+        form_note=form_signal["note"],
     )
+    confidence["form_signal"] = form_signal
 
     provenance = _match_provenance(db, match, home, away, league)
 
@@ -949,6 +1024,8 @@ def build_analysis(db: Session, match_id: int, options: AnalysisOptions | None =
             "rest_coeff": model.params.rest_coeff,
             "xg_weight": xg_weight,
             "xg_used": xg_used,
+            "missing_teams": sorted(missing_teams),
+            "evidence": evidence,
         },
         "expected_goals": {
             "home": lambda_home,

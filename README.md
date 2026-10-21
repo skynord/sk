@@ -206,9 +206,13 @@ The easiest way to get real games in is **openfootball** — free, public-domain
 result data with no key. Choose the competitions and seasons in `.env`:
 
 ```
-FA_OPENFOOTBALL_LEAGUES=en.1,es.1,de.1,it.1,fr.1
+FA_OPENFOOTBALL_LEAGUES=en.1,es.1,de.1,it.1,fr.1,nl.1,pt.1,be.1,at.1,tr.1,gr.1,sco.1,uefa.cl
 FA_OPENFOOTBALL_SEASONS=2024-25,2025-26
 ```
+
+The six smaller domestic leagues are there for the Champions League: without
+them a Turkish, Greek, Portuguese, Belgian, Dutch, Austrian or Scottish club is
+only a league-average prior, and "Galatasaray are strong" would be a guess.
 
 then:
 
@@ -321,6 +325,19 @@ can give it a weight (0–1); the report states clearly whether xG was used.
 
 ---
 
+**Form does not move the probabilities.** Results already carry it, and
+walk-forward backtests of the form term (points per game, last 5) came out
+slightly *worse* than without it: Brier 0.58750 vs 0.58707 in England,
+0.59242 vs 0.59231 in Spain, 0.60580 vs 0.60554 in France. It does move the
+**confidence grade**: a pick whose side is in clearly better recent form gains
+up to 4 points, one whose side is in clearly worse form loses 6, and the report
+says which. Both sides need five recent matches for it to apply.
+
+**No pick without evidence.** If either side has no completed match in the
+training window its strength is only a league-average prior, so the prediction
+bot publishes the market numbers but no pick, no value and no confidence score:
+the Predictions page shows "sin datos" rather than dressing a guess up as a
+favourite.
 ## API quick reference
 
 All routes are under the `/api` prefix.

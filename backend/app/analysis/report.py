@@ -263,6 +263,8 @@ def derive_confidence(
     has_odds: bool = False,
     one_x_two: dict[str, float] | None = None,
     has_secondary_stats: bool = False,
+    form_delta: float = 0.0,
+    form_note: str | None = None,
 ) -> dict[str, Any]:
     """Grade how well-supported a prediction is, from "very low" to "very high".
 
@@ -317,6 +319,10 @@ def derive_confidence(
 
     score = int(round(100.0 * ((1.0 - _CLARITY_WEIGHT) * support_norm + _CLARITY_WEIGHT * decisiveness)))
     score = int(_clamp(float(score), 0.0, 100.0))
+    if form_delta:
+        score = int(_clamp(float(score) + form_delta, 0.0, 100.0))
+        if form_note:
+            notes.append(form_note)
     level = _level_for(score)
 
     if n_training_matches < min_matches:

@@ -14,7 +14,8 @@ const SELECT_LABEL: Record<string, string> = {
 };
 
 function pickLabel(prediction: UpcomingPrediction): string {
-  const { selection } = prediction.pick;
+  const selection = prediction.pick?.selection;
+  if (!selection) return "–";
   if (selection === "home") return prediction.home_team;
   if (selection === "away") return prediction.away_team;
   return SELECT_LABEL[selection] ?? selection;
@@ -213,28 +214,49 @@ export default function Predictions() {
                           </div>
                         </td>
                         <td>
-                          {pickLabel(p)} <strong>{pct(p.pick.probability, 0)}</strong>
+                          {p.insufficient_data?.length ? (
+                            <span
+                              className="muted"
+                              title={`No completed match for ${p.insufficient_data.join(", ")}: the model only holds a league-average prior, so no side is favoured.`}
+                            >
+                              sin datos
+                            </span>
+                          ) : p.pick ? (
+                            <>
+                              {pickLabel(p)} <strong>{pct(p.pick.probability, 0)}</strong>
+                            </>
+                          ) : (
+                            <span className="faint">–</span>
+                          )}
                         </td>
                         <td className="num">
-                          <strong>{p.predicted_score.score}</strong>{" "}
-                          <span className="faint">{pct(p.predicted_score.probability, 0)}</span>
+                          {p.insufficient_data?.length ? (
+                            <span className="faint">–</span>
+                          ) : (
+                            <>
+                              <strong>{p.predicted_score.score}</strong>{" "}
+                              <span className="faint">
+                                {pct(p.predicted_score.probability, 0)}
+                              </span>
+                            </>
+                          )}
                         </td>
                         <td
                           className="num"
                           title={
-                            typeof btts === "number"
+                            typeof btts === "number" && !p.insufficient_data?.length
                               ? `Both teams to score: ${pct(btts, 0)}`
                               : "No BTTS estimate"
                           }
                         >
-                          {typeof btts === "number" ? (
+                          {typeof btts === "number" && !p.insufficient_data?.length ? (
                             <span className={btts >= 0.5 ? "mono" : "muted"}>{pct(btts, 0)}</span>
                           ) : (
                             <span className="faint">–</span>
                           )}
                         </td>
                         <td>
-                          {typeof p.confidence_score === "number" ? (
+                          {typeof p.confidence_score === "number" && !p.insufficient_data?.length ? (
                             <span
                               className={`conf-score conf-${confidenceTone(p.confidence)}`}
                               title={`Confidence ${p.confidence}: ${p.confidence_score}/100`}
