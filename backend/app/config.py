@@ -139,6 +139,12 @@ class Settings(BaseSettings):
     bot_default_days_ahead: int = 14
     bot_default_limit: int = 50
     bot_loop_seconds: int = 3600
+    #: How long the batch the Predictions page reads stays usable before the
+    #: background loop rebuilds it.  Fitting one model per competition is
+    #: CPU-bound (minutes on a small server), so the batch is built in the
+    #: background and served from storage; this only decides how often that
+    #: background cost is paid.
+    batch_max_age_hours: float = 6.0
 
     # --- Chat language model (optional) ----------------------------------
     # Any OpenAI-compatible endpoint works, including free tiers.  Set just a

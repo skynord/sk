@@ -294,6 +294,30 @@ class Prediction(Base):
     )
 
 
+class PredictionBatch(Base):
+    """A whole window's predictions, stored so a page needs no on-demand fit.
+
+    Fitting one model per competition is CPU-bound: on a small server it takes
+    far longer than a visitor will wait.  The background loop builds the batch
+    and keeps it here; the API serves the stored payload (with the time it was
+    computed) instead of making every visit pay for a fresh fit.
+    """
+
+    __tablename__ = "prediction_batches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scope_key: Mapped[str] = mapped_column(String(120), index=True)
+    window_days: Mapped[int] = mapped_column(Integer, default=14)
+    include_live: Mapped[bool] = mapped_column(Boolean, default=True)
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+
+
 class BacktestResult(Base):
     __tablename__ = "backtest_results"
 

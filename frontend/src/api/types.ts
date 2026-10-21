@@ -1,4 +1,4 @@
-// Shared API types, mirroring the backend response shapes.
+﻿// Shared API types, mirroring the backend response shapes.
 
 export interface TeamRef {
   id: number;
@@ -352,6 +352,7 @@ export interface UpcomingPrediction {
   kickoff_utc: string;
   status: string;
   league: string | null;
+  league_id?: number | null;
   home_team: string;
   away_team: string;
   probabilities: {
@@ -371,6 +372,8 @@ export interface UpcomingPrediction {
 
 export interface UpcomingPredictions {
   status: "idle" | "running" | "ready" | "error";
+  source?: "stored" | "live";
+  stored_window_days?: number | null;
   started_at?: string | null;
   finished_at?: string | null;
   error?: string | null;
@@ -380,7 +383,15 @@ export interface UpcomingPredictions {
   league_id?: number | null;
   considered?: number;
   predicted?: number;
-  skipped?: Array<{ match_id: number; home_team: string; away_team: string; reason: string }>;
+  skipped?: Array<{
+    match_id: number;
+    kickoff_utc?: string;
+    status?: string;
+    league_id?: number | null;
+    home_team: string;
+    away_team: string;
+    reason: string;
+  }>;
   predictions?: UpcomingPrediction[];
 }
 

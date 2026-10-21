@@ -246,8 +246,8 @@ foreach ($s in 2022,2023,2024) {
 }
 ```
 
-**Daily refresh** — one command imports today's big-five fixtures **and odds**,
-then runs the prediction bot over them:
+**Daily refresh** — one command imports today's fixtures **and odds** (the big
+five and the Champions League), then runs the prediction bot over them:
 
 ```powershell
 cd backend
@@ -340,6 +340,13 @@ All routes are under the `/api` prefix.
 | POST | `/api/models/backtest` | run a walk-forward backtest |
 | POST | `/api/ingest/run` | trigger a provider import |
 | POST | `/api/value/assess` | expected value for one price |
+
+`/api/predictions/upcoming` answers from the batch the background refresh stored
+(`source: "stored"`, plus the time it was computed) whenever the requested
+window fits inside it, and `refresh=true` fits the model again. Fitting one model
+per competition is CPU-bound — minutes on a small free server — so the batch is
+built in the background and served from the database instead of making every
+visit pay for a fit.
 
 Example:
 

@@ -21,6 +21,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.analysis import batches
 from app.config import get_settings
 from app.db.base import SessionLocal
 from app.db.models import IngestRun
@@ -136,7 +137,6 @@ def start() -> None:
     settings = get_settings()
     if not settings.api_football_key:
         logger.info("daily odds refresh is off: no API-Football key configured")
-        return
     interval = max(60, int(settings.bot_loop_seconds))
 
     def _loop() -> None:
@@ -145,6 +145,12 @@ def start() -> None:
                 refresh_today()
             except Exception as exc:  # noqa: BLE001 - a daemon loop must not die
                 logger.warning("daily odds refresh failed", extra={"error": str(exc)})
+            # The Predictions page reads a stored batch: fitting the model is
+            # CPU-bound, so it happens here rather than while somebody waits.
+            try:
+                batches.refresh_if_stale(max_age_hours=settings.batch_max_age_hours)
+            except Exception as exc:  # noqa: BLE001 - a daemon loop must not die
+                logger.warning("prediction batch refresh failed", extra={"error": str(exc)})
             time.sleep(interval)
 
     threading.Thread(target=_loop, name="daily-odds-refresh", daemon=True).start()

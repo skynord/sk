@@ -129,8 +129,17 @@ export default function Predictions() {
       {running && (
         <Loading
           label="Running the prediction bot…"
-          detail="Fitting one model per competition — the first run takes a couple of minutes; later runs are instant."
+          detail="Fitting one model per competition. On the free server this takes several minutes: leave the page open and the results appear as soon as the run finishes."
         />
+      )}
+
+      {data?.status === "ready" && data.source === "stored" && (
+        <InfoBox>
+          These are the predictions the background refresh computed
+          {data.generated_at ? ` at ${formatDateTime(data.generated_at)}` : ""} for the next{" "}
+          {data.stored_window_days ?? data.window_days} days. Press <strong>Run bot</strong> to
+          recompute them now.
+        </InfoBox>
       )}
 
       {data?.status === "ready" && (

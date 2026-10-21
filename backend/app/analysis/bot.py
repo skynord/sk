@@ -88,6 +88,7 @@ def summarise_report(report: dict[str, Any]) -> dict[str, Any]:
         "kickoff_utc": match["kickoff_utc"],
         "status": match["status"],
         "league": (match.get("league") or {}).get("name"),
+        "league_id": (match.get("league") or {}).get("id"),
         "home_team": match["home_team"]["name"],
         "away_team": match["away_team"]["name"],
         "probabilities": {
@@ -140,6 +141,9 @@ def predict_upcoming(
             skipped.append(
                 {
                     "match_id": match.id,
+                    "kickoff_utc": match.kickoff_utc.isoformat(),
+                    "status": match.status,
+                    "league_id": match.league_id,
                     "home_team": names.get(match.home_team_id, str(match.home_team_id)),
                     "away_team": names.get(match.away_team_id, str(match.away_team_id)),
                     "reason": str(exc),

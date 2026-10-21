@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 
 from sqlalchemy import func, select
 
@@ -84,12 +85,36 @@ def test_refresh_without_a_key_attempts_nothing(db):
     assert _runs() == before
 
 
-def test_start_without_a_key_starts_no_thread():
+def test_start_without_a_key_still_warms_the_stored_batch(monkeypatch):
+    """The import needs a key; the stored prediction batch does not.
+
+    The loop is what builds the batch the Predictions page reads, so it has to
+    run even when no provider key is configured (it then imports nothing).
+    """
     assert get_settings().api_football_key is None
-    named = lambda: [t for t in threading.enumerate() if t.name == "daily-odds-refresh"]  # noqa: E731
-    assert named() == []
+
+    imported: list[int] = []
+    warmed: list[float] = []
+    gate = threading.Event()
+    monkeypatch.setattr(daily, "refresh_today", lambda: imported.append(1))
+    monkeypatch.setattr(
+        daily.batches, "refresh_if_stale", lambda **kwargs: warmed.append(kwargs["max_age_hours"])
+    )
+
+    def park(_seconds: float) -> bool:
+        # Park the daemon loop for the rest of the session instead of letting it
+        # sleep for real and rebuild a batch behind the other tests.
+        return gate.wait(60)
+
+    monkeypatch.setattr(daily.time, "sleep", park)
     daily.start()
-    assert named() == []
+
+    deadline = time.monotonic() + 5
+    while not warmed and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert imported == [1]
+    assert warmed == [get_settings().batch_max_age_hours]
 
 
 def test_batch_key_changes_when_new_data_is_imported(db):

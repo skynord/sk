@@ -42,12 +42,16 @@ def seeded() -> Path:
 
 
 @pytest.fixture(autouse=True)
-def _clean_caches():
-    """Keep the analysis memo and the bot's job state from leaking between tests."""
+def _clean_caches(seeded):
+    """Keep the analysis memo, the bot's job state and stored batches per-test."""
     from app.analysis import bot_jobs, memo
+    from app.db.models import PredictionBatch
 
     memo.clear()
     bot_jobs.reset()
+    with SessionLocal() as db:
+        db.query(PredictionBatch).delete()
+        db.commit()
     yield
     memo.clear()
     bot_jobs.reset()
