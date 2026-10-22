@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
-import type { AnalysisOptions, AnalysisReport } from "../api/types";
+import type { AnalysisOptions, AnalysisReport, UpcomingPrediction } from "../api/types";
 import { Card, ErrorBox, Loading, StatCard, WarnBox } from "../components/ui";
 import { TeamCrest } from "../components/TeamCrest";
 import { LeagueCrest } from "../components/LeagueCrest";
@@ -23,6 +23,8 @@ export default function MatchAnalysis() {
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stored, setStored] = useState<UpcomingPrediction | null>(null);
+  const [storedAt, setStoredAt] = useState<string | null>(null);
 
   const [sims, setSims] = useState(10000);
   const [xgWeight, setXgWeight] = useState(0);
@@ -58,23 +60,18 @@ export default function MatchAnalysis() {
   );
 
   useEffect(() => {
+    if (!Number.isFinite(matchId)) return;
     api
-      .match(matchId)
-      .then((d) => {
-        const existing = d.odds.filter((o) => o.market === "1x2");
-        if (existing.length >= 3) {
-          setOdds(
-            ["home", "draw", "away"].map((sel) => ({
-              selection: sel,
-              odds: String(existing.find((o) => o.selection === sel)?.decimal_odds ?? ""),
-            })),
-          );
-        } else {
-          setOdds(["home", "draw", "away"].map((sel) => ({ selection: sel, odds: "" })));
+      .storedPrediction(matchId)
+      .then((r) => {
+        if (r.found && r.prediction) {
+          setStored(r.prediction);
+          setStoredAt(r.generated_at ?? null);
         }
       })
-      .catch((e: Error) => setError(e.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch(() => {
+        /* no stored prediction yet */
+      });
   }, [matchId]);
 
   useEffect(() => {
@@ -82,8 +79,20 @@ export default function MatchAnalysis() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
 
-  if (error && !report) return <ErrorBox message={error} />;
-  if (!report) return <Loading label="Fitting model and simulating…" />;
+  if (error && !report)
+    return (
+      <div>
+        {stored && <StoredPredictionCard prediction={stored} generatedAt={storedAt} />}
+        <ErrorBox message={error} />
+      </div>
+    );
+  if (!report)
+    return (
+      <div>
+        {stored && <StoredPredictionCard prediction={stored} generatedAt={storedAt} />}
+        <Loading label="Fitting model and simulating…" />
+      </div>
+    );
 
   const { match, markets, expected_goals } = report;
   const synthetic = isSynthetic(match.league.country);
@@ -586,9 +595,47 @@ export default function MatchAnalysis() {
 
       <div className="row">
         <Link to="/matches" className="btn secondary small">
-          ← Back to matches
+          Back to matches
         </Link>
       </div>
     </div>
+  );
+}
+
+function StoredPredictionCard({ prediction, generatedAt }: { prediction: UpcomingPrediction; generatedAt: string | null }) {
+  return (
+    <Card title="Stored batch prediction">
+      <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <strong>
+            {prediction.home_team} <span className="faint">vs</span> {prediction.away_team}
+          </strong>
+          {prediction.league ? <span className="faint"> • {prediction.league}</span> : null}
+          {generatedAt ? <span className="faint"> • generated {formatDate(generatedAt)}</span> : null}
+        </div>
+        <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+          <span className="badge">
+            Home {pct(prediction.probabilities.one_x_two.home, 1)}
+          </span>
+          <span className="badge">
+            Draw {pct(prediction.probabilities.one_x_two.draw, 1)}
+          </span>
+          <span className="badge">
+            Away {pct(prediction.probabilities.one_x_two.away, 1)}
+          </span>
+          {prediction.pick ? (
+            <span className="badge synthetic">
+              Pick: {prediction.pick.market} {prediction.pick.selection} ({pct(prediction.pick.probability, 1)})
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <p className="faint" style={{ marginTop: 8, marginBottom: 0 }}>
+        xG {num(prediction.expected_goals.home)}–{num(prediction.expected_goals.away)} • most likely{" "}
+        {prediction.predicted_score.score} ({pct(prediction.predicted_score.probability, 1)}) • confidence{" "}
+        {prediction.confidence}
+        {typeof prediction.confidence_score === "number" ? ` ${prediction.confidence_score}/100` : ""}
+      </p>
+    </Card>
   );
 }

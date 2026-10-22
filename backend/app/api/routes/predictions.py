@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,27 @@ from app.timezones import iso_utc
 router = APIRouter(tags=["predictions"])
 
 LIVE_PROVIDER_PREFERENCE = ("api_football", "football_data_org", "sportmonks")
+
+
+@router.get("/predictions/match/{match_id}")
+def prediction_for_match(match_id: int, db: Session = Depends(get_db)) -> dict:
+    """The stored batch prediction for one fixture, served without a fit.
+
+    A full analysis refits the model and takes minutes on a small server, so the
+    analysis page reads this first and shows the numbers it already has while
+    the detailed report is computed.
+    """
+    stored = batches.latest(db)
+    if stored is not None:
+        for row in stored.get("predictions") or []:
+            if int(row.get("match_id") or 0) == match_id:
+                return {
+                    "found": True,
+                    "generated_at": stored.get("generated_at"),
+                    "window_days": stored.get("window_days"),
+                    "prediction": row,
+                }
+    raise HTTPException(status_code=404, detail="no stored prediction for this fixture yet")
 
 
 @router.get("/predictions/upcoming")

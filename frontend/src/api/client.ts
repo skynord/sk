@@ -9,6 +9,7 @@ import type {
   MatchDetail,
   MatchList,
   ProviderInfo,
+  UpcomingPrediction,
   UpcomingPredictions,
 } from "./types";
 
@@ -16,6 +17,10 @@ const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 const NETWORK_RETRIES = 6;
 const NETWORK_RETRY_BASE_MS = 500;
+
+// A full fit over a pooled cup scope takes minutes on the free server; stop
+// waiting eventually instead of leaving the page spinning forever.
+const ANALYSIS_TIMEOUT_MS = 240_000;
 
 export class ApiError extends Error {
   status: number;
@@ -38,6 +43,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...init,
       });
     } catch (err) {
+      // An aborted request was stopped on purpose (a slow fit on a small
+      // server): retrying would only hang again.
+      if ((err as Error).name === "AbortError" || (err as Error).name === "TimeoutError") {
+        throw new ApiError(
+          "The server did not answer in time. A full model fit takes minutes on the free server; the stored prediction above is still current.",
+          0,
+        );
+      }
       // A refused connection means the request never reached the API, so
       // retrying is safe (nothing ran server-side). Covers the dev-server
       // startup race where the UI loads before the backend is listening.
@@ -98,7 +111,13 @@ export const api = {
     request<AnalysisReport>(`/analysis/${id}`, {
       method: "POST",
       body: JSON.stringify(options),
+      signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
     }),
+
+  storedPrediction: (id: number) =>
+    request<{ found: boolean; generated_at?: string; prediction: UpcomingPrediction }>(
+      `/predictions/match/${id}`,
+    ),
 
   backtest: (body: {
     league_id: number;
