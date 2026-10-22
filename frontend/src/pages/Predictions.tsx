@@ -30,6 +30,7 @@ export default function Predictions() {
   const [leagueId, setLeagueId] = useState<number | undefined>(undefined);
   const [days, setDays] = useState(14);
   const [includeLive, setIncludeLive] = useState(true);
+  const [withFixtures, setWithFixtures] = useState<Set<string>>(new Set());
   const pollTimer = useRef<number | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -52,6 +53,15 @@ export default function Predictions() {
         })
         .then((res) => {
           setData(res);
+          if (leagueId === undefined && res.status === "ready") {
+            setWithFixtures(
+              new Set(
+                (res.predictions ?? [])
+                  .map((p) => p.league)
+                  .filter((name): name is string => Boolean(name)),
+              ),
+            );
+          }
           if (res.status === "running") {
             pollTimer.current = window.setTimeout(() => run(false), POLL_MS);
           }
@@ -71,6 +81,10 @@ export default function Predictions() {
   }, [run, clearTimer]);
 
   const running = data?.status === "running";
+  const selected = leagues.find((l) => l.id === leagueId);
+  const fixturesKnown = withFixtures.size > 0;
+  const withUpcoming = leagues.filter((l) => withFixtures.has(l.name));
+  const historyOnly = leagues.filter((l) => !withFixtures.has(l.name) && l.match_count > 0);
 
   return (
     <div>
@@ -91,11 +105,34 @@ export default function Predictions() {
               onChange={(e) => setLeagueId(e.target.value ? Number(e.target.value) : undefined)}
             >
               <option value="">All competitions</option>
-              {leagues.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
+              {fixturesKnown ? (
+                <>
+                  {withUpcoming.length > 0 && (
+                    <optgroup label="With fixtures in the window">
+                      {withUpcoming.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {historyOnly.length > 0 && (
+                    <optgroup label="History only — no fixtures loaded">
+                      {historyOnly.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name} ({l.match_count} results)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </>
+              ) : (
+                leagues.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))
+              )}
             </select>
           </label>
           <label>
@@ -156,14 +193,24 @@ export default function Predictions() {
             />
           </div>
 
-          {(data.predicted ?? 0) === 0 && (
-            <WarnBox>
-              No upcoming fixtures were found in the window. The bot predicts fixtures that are
-              already in the database (status <span className="mono">scheduled</span> or{" "}
-              <span className="mono">live</span>). If every stored match is historical, import
-              upcoming fixtures first, then run the bot again.
-            </WarnBox>
-          )}
+          {(data.predicted ?? 0) === 0 &&
+            (selected && selected.match_count > 0 ? (
+              <WarnBox>
+                <strong>{selected.name}</strong> holds {selected.match_count} finished matches and
+                no fixture in this window, so there is nothing to predict yet. Its results are all
+                historical: the bot only predicts matches stored as{" "}
+                <span className="mono">scheduled</span> or <span className="mono">live</span>, and no
+                fixture list for its current season has been imported.{" "}
+                <Link to={`/matches?league_id=${selected.id}`}>See its results</Link>.
+              </WarnBox>
+            ) : (
+              <WarnBox>
+                No upcoming fixtures were found in the window. The bot predicts fixtures that are
+                already in the database (status <span className="mono">scheduled</span> or{" "}
+                <span className="mono">live</span>). If every stored match is historical, import
+                upcoming fixtures first, then run the bot again.
+              </WarnBox>
+            ))}
 
           {(data.predictions ?? []).length > 0 && (
             <Card title="Predicted fixtures">
