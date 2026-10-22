@@ -300,3 +300,21 @@ def test_cup_short_names_fold_to_the_league_spelling():
     assert identity.team_merge_key("Sporting CP") != identity.team_merge_key(
         "Sporting Clube de Braga"
     )
+
+
+@pytest.mark.parametrize(
+    ("english", "stored"),
+    [
+        ("Sparta Prague", "AC Sparta Praha (CZE)"),
+        ("Slavia Prague", "Slavia Praha (CZE)"),
+        ("Olympiacos", "Olympiakos Piraeus (GRE)"),
+        ("Pafos", "Paphos FC (CYP)"),
+        ("Ferencváros", "Ferencvárosi TC (HUN)"),
+        ("Sint-Truiden", "Sint-Truidense VV"),
+        ("Bodø/Glimt", "Bodo/Glimt"),
+    ],
+)
+def test_english_cup_spellings_fold_to_the_stored_club(english, stored):
+    # A fixture list written in English (the cup pages) must land on the club
+    # our result providers already file, or the import opens a second row.
+    assert identity.team_merge_key(english) == identity.team_merge_key(stored)

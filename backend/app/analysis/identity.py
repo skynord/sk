@@ -105,6 +105,18 @@ _CLUB_ALIASES: dict[str, str] = {
     "sporting lisbon": "sporting clube de portugal",
     "feyenoord rotterdam": "feyenoord",
     "lask linz": "lask",
+    # The English cup spellings of clubs our result providers file under the
+    # native name, so a fixture list written in English lands on their history.
+    "sparta prague": "ac sparta praha",
+    "slavia prague": "slavia praha",
+    "olympiacos": "olympiakos piraeus",
+    "pafos": "paphos fc",
+    "ferencvaros": "ferencvarosi tc",
+    "sint truiden": "sint truidense vv",
+    # "ø" is not a letter NFKD knows how to expand, so an exporter that drops
+    # the accent leaves "Bodø/Glimt" as "Bod Glimt".
+    "bod glimt": "bodo glimt",
+    "bodoglimt": "bodo glimt",
 }
 
 

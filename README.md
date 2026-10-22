@@ -229,6 +229,22 @@ that first filed it (a club imported through the Champions League keeps the cup
 as its "home" league forever), and the short cup spelling is folded onto the
 league spelling, so `Sporting CP` trains on its Primeira Liga results.
 
+openfootball publishes a cup season only once it is over, and the live fixture
+provider is the app's only source of current cup rounds, so while that key is
+down the current season's league phase comes from the published fixture list:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.import_cup_fixtures           # what it would change
+.\.venv\Scripts\python.exe -m scripts.import_cup_fixtures --apply
+```
+
+It reads the Wikipedia league-phase page for each UEFA cup (fixture dates,
+grounds and pairings are facts; the pages themselves are CC BY-SA and none of
+their text is reproduced), stores the page URL as every row's provenance, files
+the clubs under the names already in the database, and updates a fixture it
+already holds instead of adding it twice — so the Champions League rows left
+`scheduled` by the outage pick up their real score.
+
 then:
 
 ```powershell
