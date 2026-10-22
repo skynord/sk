@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
 import { Card, ErrorBox, Loading } from "../components/ui";
 import { formatDate } from "../lib/format";
 
