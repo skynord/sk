@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.analysis import batches
 from app.api.deps import get_db
-from app.db.models import Match, Team
+from app.db.models import Match, Prediction, Team
 
 router = APIRouter(tags=["results"])
 
@@ -57,6 +57,38 @@ def results(
                 pred_map[int(p["match_id"])] = p
             except Exception:
                 continue
+
+    # Also load individual predictions from predictions table for finished matches
+    mids = [m.id for m in matches]
+    if mids:
+        pres = db.execute(select(Prediction).where(Prediction.match_id.in_(mids))).scalars().all()
+        by_mid: dict[int, list[Prediction]] = {}
+        for pr in pres:
+            by_mid.setdefault(pr.match_id, []).append(pr)
+        for mid, plist in by_mid.items():
+            if mid in pred_map:
+                continue  # prefer batch
+            # build a summary like bot.summarise_report would produce
+            probs: dict[str, dict] = {}
+            for pr in plist:
+                probs.setdefault(pr.market, {})[pr.selection] = pr.probability
+            pick = None
+            if probs.get("1x2"):
+                sel = max(probs["1x2"].items(), key=lambda x: x[1])[0]
+                pick = {"market": "1x2", "selection": sel, "probability": probs["1x2"][sel]}
+            pred_map[mid] = {
+                "match_id": mid,
+                "pick": pick,
+                "probabilities": {
+                    "one_x_two": probs.get("1x2") or {},
+                    "btts": probs.get("btts") or {},
+                },
+                "predicted_score": None,
+                "expected_goals": None,
+                "confidence": None,
+            }
+            # find best correct score if stored differently? predictions table doesn't store correct scores directly as market usually
+            # but try to infer from distribution if present? skip for now
 
     rows = []
     for m in matches:
