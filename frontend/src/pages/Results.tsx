@@ -134,7 +134,7 @@ export default function Results() {
                   <td>
                     {r.bot.pick ? (
                       <span>
-                        {r.bot.pick.selection} ({Math.round(r.bot.pick.probability * 100)}%)
+                        {r.bot.pick.selection === "home" ? r.home_team.split(" ")[0] : r.bot.pick.selection === "away" ? r.away_team.split(" ")[0] : "Draw"} ({Math.round(r.bot.pick.probability * 100)}%)
                       </span>
                     ) : (
                       <span className="faint">—</span>
