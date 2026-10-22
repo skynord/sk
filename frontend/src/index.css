@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
    Sky â€” Liquid Glass theme (iOS 26 inspired)
    Translucent, depth-layered surfaces over a soft animated aurora.
    ========================================================================= */
@@ -1227,4 +1227,39 @@ tbody tr:hover {
   .msg {
     max-width: 92%;
   }
+}
+
+/* Predicted fixtures: order buttons, confidence floor and sortable headers. */
+.pred-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pred-order {
+  display: flex;
+  gap: 6px;
+}
+.pred-min {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pred-count {
+  margin-left: auto;
+}
+.th-sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.th-sort:hover {
+  color: var(--text, #fff);
 }

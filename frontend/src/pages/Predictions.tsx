@@ -25,11 +25,11 @@ const POLL_MS = 2500;
 
 type SortKey = "confidence" | "kickoff" | "competition";
 
-const SORT_LABEL: Record<SortKey, string> = {
-  confidence: "Confidence, highest first",
-  kickoff: "Kickoff, soonest first",
-  competition: "Competition, then kickoff",
-};
+const SORT_CHOICES: { key: SortKey; label: string; hint: string }[] = [
+  { key: "confidence", label: "Confidence", hint: "Most confident first" },
+  { key: "kickoff", label: "Kickoff", hint: "Soonest first" },
+  { key: "competition", label: "Competition", hint: "Grouped by competition" },
+];
 
 const MIN_CONFIDENCE = [
   { value: 0, label: "Any confidence" },
@@ -196,26 +196,7 @@ export default function Predictions() {
               onChange={(e) => setIncludeLive(e.target.checked)}
             />
           </label>
-          <label>
-            <div className="muted small">Show matches, sorted by</div>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}>
-              {(Object.keys(SORT_LABEL) as SortKey[]).map((key) => (
-                <option key={key} value={key}>
-                  {SORT_LABEL[key]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <div className="muted small">Only at least this confidence</div>
-            <select value={minConfidence} onChange={(e) => setMinConfidence(Number(e.target.value))}>
-              {MIN_CONFIDENCE.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+
           <label>
             <div className="muted small">&nbsp;</div>
             <button onClick={() => run(true)} disabled={running}>
@@ -283,22 +264,58 @@ export default function Predictions() {
           )}
 
           {shown.length > 0 && (
-            <Card
-              title={
-                <span>
-                  Predicted fixtures{" "}
-                  <span className="faint small">
-                    {shown.length === predictions.length
-                      ? `${predictions.length} shown`
-                      : `${shown.length} of ${predictions.length} shown`}
-                  </span>
+            <Card title="Predicted fixtures">
+              <div className="pred-toolbar">
+                <span className="muted small">Order by</span>
+                <div className="pred-order" role="group" aria-label="Order the predicted fixtures">
+                  {SORT_CHOICES.map((choice) => {
+                    const active = sortBy === choice.key;
+                    return (
+                      <button
+                        key={choice.key}
+                        type="button"
+                        className={`btn small${active ? "" : " secondary"}`}
+                        aria-pressed={active}
+                        title={choice.hint}
+                        onClick={() => setSortBy(choice.key)}
+                      >
+                        {choice.label}
+                        {active && <span aria-hidden="true">{choice.key === "confidence" ? " ↓" : " ↑"}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="pred-min">
+                  <span className="muted small">At least</span>
+                  <select
+                    value={minConfidence}
+                    onChange={(e) => setMinConfidence(Number(e.target.value))}
+                  >
+                    {MIN_CONFIDENCE.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="faint small pred-count">
+                  {shown.length === predictions.length
+                    ? `${predictions.length} fixtures`
+                    : `${shown.length} of ${predictions.length} fixtures`}
                 </span>
-              }
-            >
+              </div>
+
               <table className="fixtures-table">
                 <thead>
                   <tr>
-                    <th>Kickoff</th>
+                    <th>
+                      <button type="button" className="th-sort" onClick={() => setSortBy("kickoff")}>
+                        Kickoff
+                        <span className="faint small">
+                          {sortBy === "kickoff" ? "↑" : ""}
+                        </span>
+                      </button>
+                    </th>
                     <th>Competition</th>
                     <th>
                       Match <span className="faint small">(ML)</span>
@@ -308,7 +325,18 @@ export default function Predictions() {
                     <th className="num" title="Both teams to score">
                       BTTS
                     </th>
-                    <th>Confidence</th>
+                    <th>
+                      <button
+                        type="button"
+                        className="th-sort"
+                        onClick={() => setSortBy("confidence")}
+                      >
+                        Confidence
+                        <span className="faint small">
+                          {sortBy === "confidence" ? "↓" : ""}
+                        </span>
+                      </button>
+                    </th>
                     <th></th>
                   </tr>
                 </thead>
