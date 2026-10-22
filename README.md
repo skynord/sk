@@ -206,13 +206,23 @@ The easiest way to get real games in is **openfootball** — free, public-domain
 result data with no key. Choose the competitions and seasons in `.env`:
 
 ```
-FA_OPENFOOTBALL_LEAGUES=en.1,es.1,de.1,it.1,fr.1,nl.1,pt.1,be.1,at.1,tr.1,gr.1,sco.1,uefa.cl
+FA_OPENFOOTBALL_LEAGUES=en.1,es.1,de.1,it.1,fr.1,nl.1,pt.1,be.1,at.1,tr.1,gr.1,sco.1,uefa.cl,uefa.el,uefa.ecl
 FA_OPENFOOTBALL_SEASONS=2024-25,2025-26
 ```
 
 The six smaller domestic leagues are there for the Champions League: without
 them a Turkish, Greek, Portuguese, Belgian, Dutch, Austrian or Scottish club is
 only a league-average prior, and "Galatasaray are strong" would be a guess.
+
+The Europa League (`uefa.el`) and the Conference League (`uefa.ecl`) are read
+from openfootball's cup repository instead of the JSON mirror, which carries
+neither: `.../champions-league/<season>/el.txt`, `conf.txt` and their
+`elq`/`confq` qualifying files. Same public-domain licence, same no-key access.
+A season folder that does not hold a file yet is skipped, so the import picks the
+cups up as openfootball writes them. A tie settled in extra time or on penalties
+(`0-2 pen. 3-1 a.e.t. (2-0, 1-0)`) is stored with the score that match ended on;
+the parenthesised leg and half-time pairs are not guessed at, so a half-time
+score the file does not state stays missing.
 
 A cup club's pool follows the matches it actually played, not the competition
 that first filed it (a club imported through the Champions League keeps the cup

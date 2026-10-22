@@ -120,17 +120,20 @@ def _provenance(
 
 def _upsert_league(db: Session, provider: str, match: NormalizedMatch, is_estimate: bool) -> League:
     # Providers file the cross-border cups under different "countries"
-    # (API-Football says "World", the stored rows say "Europe"), and the slug is
-    # what merges them: canonicalise first so a cup's fixtures join the league
-    # that already holds its history instead of opening a second, empty one.
-    country = identity.canonical_league_country(match.league_name, match.country)
-    slug = slugify(f"{country or 'intl'}-{match.league_name}")
+    # (API-Football says "World", the stored rows say "Europe") and different
+    # names (it still calls the Conference League by its pre-2024 name), and the
+    # slug is what merges them: canonicalise first so a cup's fixtures join the
+    # league that already holds its history instead of opening a second, empty
+    # one.
+    name = identity.canonical_league_name(match.league_name)
+    country = identity.canonical_league_country(name, match.country)
+    slug = slugify(f"{country or 'intl'}-{name}")
     league = db.execute(select(League).where(League.slug == slug)).scalars().first()
     if league is None:
-        league = League(slug=slug, name=match.league_name, country=country)
+        league = League(slug=slug, name=name, country=country)
         db.add(league)
         db.flush()
-    league.name = match.league_name
+    league.name = name
     league.country = league.country or country
     refs = dict(league.provider_refs or {})
     refs[provider] = match.league_name
@@ -336,7 +339,10 @@ def _dataset_from_provider(
 
 
 def _league_key(match: NormalizedMatch) -> tuple[str, str]:
-    return (match.league_name.strip().lower(), (match.country or "").strip().lower())
+    return (
+        identity.canonical_league_name(match.league_name).strip().lower(),
+        (match.country or "").strip().lower(),
+    )
 
 
 def ingest_provider(
@@ -361,7 +367,12 @@ def ingest_provider(
         league_filter = set()
         for spec in leagues:
             name, _, country = spec.partition("|")
-            league_filter.add((name.strip().lower(), country.strip().lower()))
+            league_filter.add(
+                (
+                    identity.canonical_league_name(name.strip()).strip().lower(),
+                    country.strip().lower(),
+                )
+            )
 
     result: dict[str, Any] = {
         "provider": provider_name,

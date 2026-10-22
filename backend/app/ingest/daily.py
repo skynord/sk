@@ -33,11 +33,13 @@ logger = get_logger(__name__)
 
 #: The competitions a daily refresh pulls, as API-Football name|country specs.
 #: The Free plan only reaches a +/-1-day date window, so these are the ones that
-#: matter on a server nobody logs into.  The Champions League is here because its
-#: fixtures are the ones a reader asks about midweek and no other provider of ours
-#: carries them; the "World" country is API-Football's own spelling and is folded
-#: to the stored "Europe" one on ingest, so it lands on the league row that
-#: already holds its history.
+#: matter on a server nobody logs into.  The UEFA cups are here because their
+#: fixtures are the ones a reader asks about midweek and no other provider of
+#: ours carries them (openfootball gives them history, not the current round);
+#: the "World" country is API-Football's own spelling and is folded to the
+#: stored "Europe" one on ingest, so it lands on the league row that already
+#: holds its history.  The Conference League is listed under both its current
+#: and its pre-2024 name for the same reason.
 REFRESH_LEAGUES = [
     "Premier League|England",
     "La Liga|Spain",
@@ -45,6 +47,9 @@ REFRESH_LEAGUES = [
     "Bundesliga|Germany",
     "Ligue 1|France",
     "UEFA Champions League|World",
+    "UEFA Europa League|World",
+    "UEFA Conference League|World",
+    "UEFA Europa Conference League|World",
 ]
 
 _lock = threading.Lock()

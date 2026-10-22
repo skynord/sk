@@ -67,9 +67,18 @@ class Settings(BaseSettings):
     openfootball_base_url: str = (
         "https://raw.githubusercontent.com/openfootball/football.json/master"
     )
+    # The UEFA cups the JSON mirror does not carry (Europa League, Conference
+    # League, Champions League from 2025-26 on) are published only as
+    # openfootball's plain-text files, in the champions-league repository:
+    # <base>/<season>/el.txt.  Public domain, no key.
+    openfootball_cup_base_url: str = (
+        "https://raw.githubusercontent.com/openfootball/champions-league/master"
+    )
     # Competition codes and seasons to read, e.g. "en.1,es.1,de.1,it.1,fr.1".
     # Domestic leagues use the European "2024-25" season style; the UEFA cups
-    # (uefa.cl/el/ecl) are filed under the same season folders.
+    # (uefa.cl/el/ecl) are filed under the same season folders -- uefa.el and
+    # uefa.ecl are read from the plain-text cup repository, since the JSON
+    # mirror does not publish them at all.
     # The extra domestic leagues matter for the Champions League: without them a
     # Turkish, Greek, Portuguese, Belgian, Dutch, Austrian or Scottish club is
     # only a league-average prior, and the model has nothing to say about it.

@@ -121,6 +121,21 @@ LEAGUE_COUNTRY_ALIASES: dict[str, str] = {
     "uefa super cup": "Europe",
 }
 
+#: Competition *names* providers spell differently, mapped to the name the
+#: stored row uses.  UEFA renamed the third competition in 2024 (dropping
+#: "Europa"); API-Football still files it under both spellings, and a second
+#: league row would carry no history at all.
+LEAGUE_NAME_ALIASES: dict[str, str] = {
+    "uefa europa conference league": "UEFA Conference League",
+}
+
+
+def canonical_league_name(name: str | None) -> str:
+    """The competition name the stored row uses, across providers."""
+    if not name:
+        return name or ""
+    return LEAGUE_NAME_ALIASES.get(normalize_name(name), name)
+
 
 def normalize_name(value: str | None) -> str:
     """Fold a provider name to a comparable key.
