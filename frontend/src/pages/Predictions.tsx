@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { League, UpcomingPrediction, UpcomingPredictions } from "../api/types";
@@ -23,6 +23,27 @@ function pickLabel(prediction: UpcomingPrediction): string {
 
 const POLL_MS = 2500;
 
+type SortKey = "confidence" | "kickoff" | "competition";
+
+const SORT_LABEL: Record<SortKey, string> = {
+  confidence: "Confidence, highest first",
+  kickoff: "Kickoff, soonest first",
+  competition: "Competition, then kickoff",
+};
+
+const MIN_CONFIDENCE = [
+  { value: 0, label: "Any confidence" },
+  { value: 30, label: "Low and up (30+)" },
+  { value: 48, label: "Moderate and up (48+)" },
+  { value: 66, label: "High and up (66+)" },
+  { value: 85, label: "Very high only (85+)" },
+];
+
+function confidenceOf(prediction: UpcomingPrediction): number {
+  if (prediction.insufficient_data?.length) return -1;
+  return typeof prediction.confidence_score === "number" ? prediction.confidence_score : -1;
+}
+
 export default function Predictions() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [data, setData] = useState<UpcomingPredictions | null>(null);
@@ -31,6 +52,8 @@ export default function Predictions() {
   const [days, setDays] = useState(14);
   const [includeLive, setIncludeLive] = useState(true);
   const [withFixtures, setWithFixtures] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<SortKey>("confidence");
+  const [minConfidence, setMinConfidence] = useState(0);
   const pollTimer = useRef<number | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -79,6 +102,26 @@ export default function Predictions() {
     run(false);
     return clearTimer;
   }, [run, clearTimer]);
+
+  const predictions = data?.predictions ?? [];
+  const shown = useMemo(() => {
+    const byConfidence = (a: UpcomingPrediction, b: UpcomingPrediction) =>
+      confidenceOf(b) - confidenceOf(a) ||
+      (b.pick?.probability ?? 0) - (a.pick?.probability ?? 0) ||
+      a.kickoff_utc.localeCompare(b.kickoff_utc);
+    const rows = predictions.filter((p) => confidenceOf(p) >= minConfidence);
+    return [...rows].sort((a, b) => {
+      if (sortBy === "confidence") return byConfidence(a, b);
+      if (sortBy === "kickoff") {
+        return a.kickoff_utc.localeCompare(b.kickoff_utc) || byConfidence(a, b);
+      }
+      return (
+        (a.league ?? "").localeCompare(b.league ?? "") ||
+        a.kickoff_utc.localeCompare(b.kickoff_utc) ||
+        byConfidence(a, b)
+      );
+    });
+  }, [predictions, sortBy, minConfidence]);
 
   const running = data?.status === "running";
   const selected = leagues.find((l) => l.id === leagueId);
@@ -154,6 +197,26 @@ export default function Predictions() {
             />
           </label>
           <label>
+            <div className="muted small">Show matches, sorted by</div>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}>
+              {(Object.keys(SORT_LABEL) as SortKey[]).map((key) => (
+                <option key={key} value={key}>
+                  {SORT_LABEL[key]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <div className="muted small">Only at least this confidence</div>
+            <select value={minConfidence} onChange={(e) => setMinConfidence(Number(e.target.value))}>
+              {MIN_CONFIDENCE.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             <div className="muted small">&nbsp;</div>
             <button onClick={() => run(true)} disabled={running}>
               {running ? "Running…" : "Run bot"}
@@ -212,8 +275,26 @@ export default function Predictions() {
               </WarnBox>
             ))}
 
-          {(data.predictions ?? []).length > 0 && (
-            <Card title="Predicted fixtures">
+          {predictions.length > 0 && shown.length === 0 && (
+            <WarnBox>
+              No fixture reaches a confidence of {minConfidence}/100. The model is least sure about
+              the matches with little history, so lower the minimum to see them again.
+            </WarnBox>
+          )}
+
+          {shown.length > 0 && (
+            <Card
+              title={
+                <span>
+                  Predicted fixtures{" "}
+                  <span className="faint small">
+                    {shown.length === predictions.length
+                      ? `${predictions.length} shown`
+                      : `${shown.length} of ${predictions.length} shown`}
+                  </span>
+                </span>
+              }
+            >
               <table className="fixtures-table">
                 <thead>
                   <tr>
@@ -232,7 +313,7 @@ export default function Predictions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data.predictions ?? []).map((p) => {
+                  {shown.map((p) => {
                     const btts = p.probabilities.btts?.yes;
                     return (
                       <tr key={p.match_id}>
