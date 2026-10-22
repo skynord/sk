@@ -39,7 +39,7 @@
   --shadow: 0 18px 48px -20px rgba(0, 0, 0, 0.85);
   --shadow-sm: 0 8px 24px -14px rgba(0, 0, 0, 0.8);
 
-  /* glow â€” the hover halo, pure white/grey (never blue) */
+  /* glow: the white/grey halo behind the page (never blue) */
   --glow: rgba(255, 255, 255, 0.16);
   --glow-strong: rgba(255, 255, 255, 0.26);
   --glow-halo: 0 26px 60px -24px rgba(255, 255, 255, 0.22);
@@ -108,10 +108,6 @@ a {
   text-decoration: none;
   transition: color 0.16s ease;
 }
-a:hover {
-  text-decoration: none;
-  color: #ffffff;
-}
 
 /* ---- shell ----------------------------------------------------------- */
 .app {
@@ -179,10 +175,6 @@ a:hover {
   height: 19px;
   flex-shrink: 0;
   opacity: 0.9;
-}
-.nav a:hover {
-  background: var(--bg-elev-2);
-  color: var(--text);
 }
 .nav a.active {
   color: var(--text);
@@ -423,9 +415,6 @@ th {
 tbody tr {
   transition: background 0.15s ease;
 }
-tbody tr:hover {
-  background: rgba(255, 255, 255, 0.045);
-}
 td.num,
 th.num {
   text-align: right;
@@ -536,13 +525,6 @@ tr:last-child td {
     filter 0.16s ease,
     box-shadow 0.16s ease;
 }
-.btn:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-  box-shadow:
-    0 16px 40px -14px rgba(255, 255, 255, 0.65),
-    var(--glass-hi);
-}
 .btn:active {
   transform: translateY(0) scale(0.985);
 }
@@ -596,9 +578,6 @@ a.analyse-btn {
 a.analyse-btn span {
   transition: transform 0.16s ease;
 }
-a.analyse-btn:hover span {
-  transform: translateX(2px);
-}
 .conf-score {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -634,10 +613,6 @@ select {
     border-color 0.16s ease,
     box-shadow 0.16s ease,
     background 0.16s ease;
-}
-input:hover,
-select:hover {
-  background: rgba(255, 255, 255, 0.09);
 }
 input:focus,
 select:focus {
@@ -812,11 +787,6 @@ input[type="checkbox"]:focus-visible {
     border-color 0.16s ease,
     transform 0.16s ease;
 }
-.match-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--border);
-  transform: translateX(2px);
-}
 .match-row:last-child {
   border-bottom: 1px solid var(--border);
 }
@@ -910,105 +880,9 @@ input[type="checkbox"]:focus-visible {
   border: 3px solid transparent;
   background-clip: content-box;
 }
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
-  background-clip: content-box;
-}
-
-/* ---- hover reactivity ------------------------------------------------ */
-/* Surfaces lift and glow with a soft white halo as the pointer passes over. */
-.card {
-  transition:
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.22s ease,
-    box-shadow 0.22s ease;
-}
-.stat {
-  transition:
-    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.ox2 .cell {
-  transition:
-    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-.badge {
-  transition:
-    transform 0.16s ease,
-    filter 0.16s ease,
-    box-shadow 0.16s ease;
-}
-.nav a svg {
-  transition:
-    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.16s ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow:
-    var(--glass-hi),
-    0 30px 70px -30px rgba(255, 255, 255, 0.28),
-    var(--shadow);
-}
-
-.stat:hover {
-  transform: translateY(-3px) scale(1.012);
-  border-color: rgba(255, 255, 255, 0.4);
-  box-shadow:
-    var(--glass-hi),
-    0 30px 60px -26px rgba(255, 255, 255, 0.36);
-}
-.stat:hover .value {
-  color: #fff;
-}
-
-.ox2 .cell:hover {
-  transform: translateY(-4px) scale(1.03);
-  border-color: rgba(255, 255, 255, 0.35);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
-  box-shadow:
-    var(--glass-hi),
-    0 26px 52px -24px rgba(255, 255, 255, 0.34);
-}
-
-tbody tr:hover {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 3px 0 0 0 var(--border-strong);
-}
-
-.badge:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.15);
-  box-shadow: 0 6px 18px -8px rgba(255, 255, 255, 0.4);
-}
-
-.nav a:hover svg {
-  transform: scale(1.14);
-}
-
-.btn.secondary:hover {
-  border-color: rgba(255, 255, 255, 0.32);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
-  box-shadow:
-    var(--glass-hi),
-    0 14px 32px -16px rgba(255, 255, 255, 0.4);
-}
-
-.match-row:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 20px 44px -24px rgba(255, 255, 255, 0.32);
-}
 
 /* ---- page transitions ------------------------------------------------ */
-/* Entering a section fades and rises in; its blocks follow with a stagger.
-   Fill mode is `backwards` (not `both`) so hover transforms are never
-   overridden once the entrance finishes. */
+/* Entering a section fades and rises in; its blocks follow with a stagger. */
 @keyframes pageEnter {
   from {
     opacity: 0;
@@ -1065,35 +939,6 @@ tbody tr:hover {
   body::before {
     animation: none !important;
     transition: none !important;
-  }
-}
-
-@media (hover: hover) {
-  * {
-    transition: none !important;
-  }
-  a:hover,
-  .nav a:hover,
-  tbody tr:hover,
-  .btn:hover,
-  input:hover,
-  select:hover,
-  .match-row:hover,
-  *::-webkit-scrollbar-thumb:hover,
-  .card:hover,
-  .stat:hover,
-  .stat:hover .value,
-  .ox2 .cell:hover,
-  .badge:hover,
-  .nav a:hover svg,
-  .btn.secondary:hover {
-    background: none !important;
-    color: inherit !important;
-    border-color: inherit !important;
-    box-shadow: none !important;
-    transform: none !important;
-    filter: none !important;
-    opacity: 1 !important;
   }
 }
 
@@ -1259,7 +1104,4 @@ tbody tr:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-.th-sort:hover {
-  color: var(--text, #fff);
 }
