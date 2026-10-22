@@ -9,6 +9,7 @@ from app.api.routes import (
     matches,
     models,
     predictions,
+    results,
     value,
 )
 
@@ -20,6 +21,7 @@ routers = [
     models.router,
     value.router,
     predictions.router,
+    results.router,
     ingest.router,
     chat.router,
 ]
@@ -34,5 +36,6 @@ __all__ = [
     "matches",
     "models",
     "predictions",
+    "results",
     "value",
 ]

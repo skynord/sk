@@ -4,6 +4,7 @@ import Matches from "./pages/Matches";
 import MatchAnalysis from "./pages/MatchAnalysis";
 import Predictions from "./pages/Predictions";
 import Ask from "./pages/Ask";
+import Results from "./pages/Results";
 
 type IconProps = { className?: string };
 
@@ -46,15 +47,26 @@ function IconChat({ className }: IconProps) {
   );
 }
 
+function IconCheck({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+
 const NAV = [
   { to: "/", label: "Dashboard", title: "Dashboard", Icon: IconGrid, end: true },
   { to: "/matches", label: "Matches", title: "Matches", Icon: IconList, end: false },
   { to: "/predictions", label: "Predictions", title: "Predictions", Icon: IconSpark, end: false },
+  { to: "/results", label: "Results", title: "Results", Icon: IconCheck, end: false },
   { to: "/chat", label: "Ask Sky", title: "Ask Sky", Icon: IconChat, end: false },
 ];
 
 function titleFor(pathname: string): string {
   if (pathname.startsWith("/matches/")) return "Match analysis";
+  if (pathname.startsWith("/results")) return "Results";
   const hit = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)));
   return hit?.title ?? "Sky";
 }
@@ -93,14 +105,15 @@ function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/matches" element={<Matches />} />
-        <Route path="/matches/:id" element={<MatchAnalysis />} />
-        <Route path="/predictions" element={<Predictions />} />
-        <Route path="/chat" element={<Ask />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/matches" element={<Matches />} />
+          <Route path="/matches/:id" element={<MatchAnalysis />} />
+          <Route path="/predictions" element={<Predictions />} />
+          <Route path="/results" element={<Results />} />
+          <Route path="/chat" element={<Ask />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
     </Layout>
   );
 }
