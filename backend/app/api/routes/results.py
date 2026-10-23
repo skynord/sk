@@ -39,7 +39,7 @@ def results(
     q = (
         select(Match)
         .where(
-            Match.status.in_(["finished", "full_time", "ft", "ended"]),
+            Match.status.in_(["finished", "full_time", "ft", "ended", "complete", "aet", "pen"]),
             Match.kickoff_utc >= cutoff,
             Match.home_goals.is_not(None),
             Match.away_goals.is_not(None),

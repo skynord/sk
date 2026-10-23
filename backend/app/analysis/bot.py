@@ -60,6 +60,40 @@ def _top(probabilities: dict[str, float]) -> tuple[str, float]:
     return selection, probabilities[selection]
 
 
+def _normalise_status(status: str | None) -> str:
+    if not status:
+        return "scheduled"
+    s = str(status).lower()
+    if s in {"finished", "full_time", "ft", "ended", "complete", "completed"}:
+        return "finished"
+    if s in {"live", "in_play", "inplay", "started"}:
+        return "live"
+    if s in {"postponed", "suspended", "cancelled", "canceled", "abandoned"}:
+        return s
+    return s
+
+
+def _score_is_set(home: int | None, away: int | None) -> bool:
+    return home is not None and away is not None
+
+
+def _normalise_status(status: str | None) -> str:
+    if not status:
+        return "scheduled"
+    s = str(status).lower()
+    if s in {"finished", "full_time", "ft", "ended", "complete", "completed", "aet", "pen", "after penalties"}:
+        return "finished"
+    if s in {"live", "in_play", "inplay", "started", "ht", "1h", "2h"}:
+        return "live"
+    if s in {"postponed", "suspended", "cancelled", "canceled", "abandoned"}:
+        return s
+    return s
+
+
+def _score_is_set(home: int | None, away: int | None) -> bool:
+    return home is not None and away is not None
+
+
 def summarise_report(report: dict[str, Any]) -> dict[str, Any]:
     """Condense a full analysis report into a one-line prediction record."""
     match = report["match"]
@@ -115,6 +149,8 @@ def summarise_report(report: dict[str, Any]) -> dict[str, Any]:
         "form_signal": report["confidence"].get("form_signal"),
         "n_training_matches": report["model"]["n_training_matches"],
         "evidence": report["model"].get("evidence"),
+        "home_goals": match.get("home_goals"),
+        "away_goals": match.get("away_goals"),
     }
 
 
