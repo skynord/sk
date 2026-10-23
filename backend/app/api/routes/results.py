@@ -31,15 +31,15 @@ def _res_btts(h: int, a: int) -> str:
 
 @router.get("/results")
 def results(
-    days: int = Query(default=30, ge=1, le=90),
-    limit: int = Query(default=100, ge=1, le=200),
+    days: int = Query(default=30, ge=1, le=365),
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
 ) -> dict:
     cutoff = datetime.now(tz=UTC) - timedelta(days=days)
     q = (
         select(Match)
         .where(
-            Match.status.in_(["finished", "full_time", "ft"]),
+            Match.status.in_(["finished", "full_time", "ft", "ended"]),
             Match.kickoff_utc >= cutoff,
             Match.home_goals.is_not(None),
             Match.away_goals.is_not(None),

@@ -68,15 +68,15 @@ export default function Results() {
         <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ marginBottom: 0 }}>Results</h1>
           <div className="row" style={{ gap: 8 }}>
-            {[7, 14, 30, 60].map((d) => (
-              <button
-                key={d}
-                className={`btn small ${days === d ? "" : "secondary"}`}
-                onClick={() => setDays(d)}
-              >
-                {d}d
-              </button>
-            ))}
+                {[7, 14, 30, 60, 90].map((d) => (
+                  <button
+                    key={d}
+                    className={`btn small ${days === d ? "" : "secondary"}`}
+                    onClick={() => setDays(d)}
+                  >
+                    {d}d
+                  </button>
+                ))}
           </div>
         </div>
         <p className="faint" style={{ marginBottom: 0 }}>
@@ -133,18 +133,18 @@ export default function Results() {
                   </td>
                   <td>
                     {r.bot.pick ? (
-                      <span>
+                      <span style={{ color: r.bot.pick_ok === true ? "#22c55e" : r.bot.pick_ok === false ? "#ef4444" : undefined }}>
                         {r.bot.pick.selection === "home" ? r.home_team.split(" ")[0] : r.bot.pick.selection === "away" ? r.away_team.split(" ")[0] : "Draw"} ({Math.round(r.bot.pick.probability * 100)}%)
                       </span>
                     ) : (
                       <span className="faint">—</span>
                     )}
                   </td>
-                  <td>{r.bot.pick_ok === true ? "✓" : r.bot.pick_ok === false ? "✗" : "—"}</td>
+                  <td style={{ color: r.bot.pick_ok === true ? "#22c55e" : r.bot.pick_ok === false ? "#ef4444" : undefined }}>{r.bot.pick_ok === true ? "✓" : r.bot.pick_ok === false ? "✗" : "—"}</td>
                   <td>{r.bot.btts_pick ? r.bot.btts_pick.toUpperCase() : <span className="faint">—</span>}</td>
-                  <td>{r.bot.btts_ok === true ? "✓" : r.bot.btts_ok === false ? "✗" : "—"}</td>
-                  <td>{r.bot.correct_score ?? <span className="faint">—</span>}</td>
-                  <td>{r.bot.correct_score_ok === true ? "✓" : r.bot.correct_score_ok === false ? "✗" : "—"}</td>
+                  <td style={{ color: r.bot.btts_ok === true ? "#22c55e" : r.bot.btts_ok === false ? "#ef4444" : undefined }}>{r.bot.btts_ok === true ? "✓" : r.bot.btts_ok === false ? "✗" : "—"}</td>
+                  <td style={{ color: r.bot.correct_score_ok === true ? "#22c55e" : undefined }}>{r.bot.correct_score ?? <span className="faint">—</span>}</td>
+                  <td style={{ color: r.bot.correct_score_ok === true ? "#22c55e" : r.bot.correct_score_ok === false ? "#ef4444" : undefined }}>{r.bot.correct_score_ok === true ? "✓" : r.bot.correct_score_ok === false ? "✗" : "—"}</td>
                 </tr>
               ))}
             </tbody>
